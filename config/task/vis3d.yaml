@@ -1,0 +1,10 @@
+one_for_each_obj: False
+data_type: "grasp" 
+check_succ: True
+
+vis_hand_contact: False
+vis_hand_sk: False
+vis_hand_init: False
+
+vis_obj_mesh: True
+vis_obj_contact: False

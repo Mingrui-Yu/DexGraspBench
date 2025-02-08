@@ -1,0 +1,8 @@
+xml_path: assets/hand/shadow/customized.xml 
+color: [0.863157, 0.0865002, 0.0802199, 1.0]
+tendon:
+    rh_FFJ0: [rh_FFJ1, rh_FFJ2]
+    rh_MFJ0: [rh_MFJ1, rh_MFJ2]
+    rh_RFJ0: [rh_RFJ1, rh_RFJ2]
+    rh_LFJ0: [rh_LFJ1, rh_LFJ2]
+finger_prefix: ['rh_ff', 'rh_mf', 'rh_rf', 'rh_lf', 'rh_th']

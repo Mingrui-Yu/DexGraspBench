@@ -1,0 +1,7 @@
+.vscode*
+__pycache__/
+*MUJOCO_LOG.TXT
+
+output*
+assets/
+debug*
