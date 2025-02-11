@@ -1,3 +1,0 @@
-max_num: 100
-normalize_hand: False
-data_type: ["grasp"] #, "pregrasp", "squeezed"]

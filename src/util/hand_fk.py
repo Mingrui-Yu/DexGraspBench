@@ -1,12 +1,8 @@
 import os
-import sys
 import trimesh
 import numpy as np
 import mujoco
 import transforms3d.quaternions as tq
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from util.file_utils import load_yaml
 
 
 class RobotKinematics:
@@ -74,4 +70,11 @@ class RobotKinematics:
 
 
 if __name__ == "__main__":
-    print("aaa")
+    xml_path = os.path.join(
+        os.path.dirname(__file__), "../../assets/hand/shadow/customized.xml"
+    )
+    kinematic = RobotKinematics(xml_path)
+    hand_qpos = np.zeros(22)
+    kinematic.forward_kinematics(hand_qpos)
+    visual_mesh = kinematic.get_posed_meshes()
+    visual_mesh.export(f"debug_hand.obj")

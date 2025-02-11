@@ -1,0 +1,5 @@
+max_num: 100
+unique_obj: True
+vis_success: True
+data_type: ["grasp"] #, "pregrasp", "squeeze"]
+normalize_hand: True

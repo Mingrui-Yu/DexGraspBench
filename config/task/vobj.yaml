@@ -1,0 +1,4 @@
+max_num: 10
+unique_obj: False
+vis_success: True
+data_type: ["grasp"] #, "pregrasp", "squeeze"]

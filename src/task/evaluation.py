@@ -90,12 +90,16 @@ class EvalOne:
             ):
                 body_name = body1_name if body2_id == object_id else body2_name
                 for name in contact_dist_dict:
-                    if body_name.startswith(name):
+                    if body_name.startswith(self.hospec.hand_prefix + name):
                         ho_pene = min(ho_pene, contact.dist)
                         contact_dist_dict[name] = min(
                             contact_dist_dict[name], contact.dist
                         )
-                if np.abs(contact.dist) < self.configs.task.contact_threshold:
+                if (
+                    np.abs(contact.dist) < self.configs.task.contact_threshold
+                    and body_name.removeprefix(self.hospec.hand_prefix)
+                    in self.configs.hand.valid_body_name
+                ):
                     contact_link_set.add(body_name)
             elif body1_id < hand_id and body2_id < hand_id:
                 self_pene = min(self_pene, contact.dist)
@@ -103,9 +107,10 @@ class EvalOne:
         contact_dist_lst = list(contact_dist_dict.values())
         contact_distance = np.mean(contact_dist_lst)
         contact_consistency = np.max(contact_dist_lst) - np.min(contact_dist_lst)
+        contact_number = len(contact_link_set)
         self.mj_model.geom_margin = 0
         self.mj_model.geom_gap = 0
-        return ho_pene, self_pene, contact_distance, contact_consistency
+        return ho_pene, self_pene, contact_number, contact_distance, contact_consistency
 
     def _resist_obj_gravity(self):
         if self.configs.debug_viewer:
@@ -155,19 +160,7 @@ class EvalOne:
         squeeze_hand_ctrl = dense_actuator_moment[:, 6:-6] @ squeeze_hand_qpos
         grasp_hand_ctrl = dense_actuator_moment[:, 6:-6] @ grasp_hand_qpos
 
-        if self.configs.task.force_closure:
-            external_force_direction = np.array(
-                [
-                    [1.0, 0, 0, 0, 0, 0],
-                    [-1.0, 0, 0, 0, 0, 0],
-                    [0.0, 1, 0, 0, 0, 0],
-                    [0.0, -1, 0, 0, 0, 0],
-                    [0.0, 0, 1, 0, 0, 0],
-                    [0.0, 0, -1, 0, 0, 0],
-                ]
-            )
-        else:
-            external_force_direction = [self.grasp_data["obj_gravity_direction"]]
+        external_force_direction = np.array(self.configs.task.external_force_direction)
 
         for i in range(len(external_force_direction)):
             mujoco.mj_resetDataKeyframe(
@@ -213,7 +206,9 @@ class EvalOne:
         return
 
     def run(self):
-        ho_pene, self_pene, cont_dist, cont_consis = self._penetration_and_contact()
+        ho_pene, self_pene, contact_num, contact_dist, contact_consis = (
+            self._penetration_and_contact()
+        )
         succ_flag, delta_pos, delta_angle = self._resist_obj_gravity()
         succ_npy_path = self.input_npy_path.replace(
             self.configs.grasp_dir, self.configs.succ_dir
@@ -228,27 +223,39 @@ class EvalOne:
         )
         if not os.path.exists(eval_npy_path):
             os.makedirs(os.path.dirname(eval_npy_path), exist_ok=True)
-            np.save(
-                eval_npy_path,
-                {
-                    "ho_pene": ho_pene,
-                    "self_pene": self_pene,
-                    "cont_dist": cont_dist,
-                    "cont_consis": cont_consis,
-                    "succ_flag": succ_flag,
-                },
-            )
+            eval_dict = {
+                "ho_pene": ho_pene,
+                "self_pene": self_pene,
+                "contact_num": contact_num,
+                "contact_dist": contact_dist,
+                "contact_consis": contact_consis,
+                "succ_flag": succ_flag,
+            }
+            for key in [
+                "hand_pose",
+                "hand_qpos",
+                "pregrasp_pose",
+                "pregrasp_qpos",
+                "squeeze_qpos",
+                "obj_scale",
+                "obj_path",
+                "obj_pose",
+            ]:
+                if key in self.grasp_data.keys():
+                    eval_dict[key] = self.grasp_data[key]
+            np.save(eval_npy_path, eval_dict)
         return
 
 
 def safe_eval_one(params):
     input_npy_path, configs = params[0], params[1]
     try:
-        return EvalOne(input_npy_path, configs).run()
+        EvalOne(input_npy_path, configs).run()
+        return
     except Exception as e:
         error_traceback = traceback.format_exc()
         logging.warning(f"{error_traceback}")
-        return input_npy_path
+        return
 
 
 def task_eval(configs):

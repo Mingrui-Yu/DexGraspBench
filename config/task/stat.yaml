@@ -1,3 +1,2 @@
-scale_fig: False
-diversity: False
-contact_number: False
+scale_fig: True
+diversity: True

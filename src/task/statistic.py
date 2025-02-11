@@ -33,14 +33,6 @@ def draw_obj_scale_fig(data_lst, save_path):
     return
 
 
-def get_obj_name_lst(path_lst):
-    obj_name_lst = []
-    for p in path_lst:
-        obj_name = p.split("/")[-2]
-        obj_name_lst.append(obj_name)
-    return list(set(obj_name_lst))
-
-
 def read_data(npy_path):
     data = np.load(npy_path, allow_pickle=True).item()
     return data
@@ -83,35 +75,43 @@ def get_diversity(data_lst):
 
 
 def task_stat(configs):
+    grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
+    succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
+    eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
+    logging.info(
+        f"Find {len(grasp_lst)} grasp data, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
+    )
 
-    all_eval_lst = glob(os.path.join(configs.succ_dir, **configs.data_struct))
-    logging.info(f"Find {len(all_eval_lst)} graspdata")
-    succ_obj_lst = get_obj_name_lst(all_eval_lst)
+    # Grasp success rate
+    logging.info(f"Grasp success rate: {len(succ_lst)/len(eval_lst)}")
 
-    if len(all_eval_lst) != 0 and (
-        configs.task.scale_fig
-        or configs.task.diversity
-        or configs.task.contact_number
-    ):
-        with multiprocessing.Pool(processes=configs.n_worker) as pool:
-            result_iter = pool.imap_unordered(read_data, all_eval_lst)
-            data_lst = list(result_iter)
+    # Object success rate
+    obj_eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct[:-1])))
+    obj_succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct[:-1])))
+    logging.info(f"Object success rate: {len(obj_succ_lst)/len(obj_eval_lst)}")
 
-        if configs.task.scale_fig:
-            save_path = os.path.join(
-                os.path.dirname(configs.log_path), "objscale.png"
-            )
-            draw_obj_scale_fig(data_lst, save_path)
+    if len(eval_lst) == 0:
+        logging.error("No evaluated grasp!")
 
-        if configs.task.diversity:
-            pca_eigenvalue = get_diversity(data_lst)
+    with multiprocessing.Pool(processes=configs.n_worker) as pool:
+        result_iter = pool.imap_unordered(read_data, eval_lst)
+        data_lst = list(result_iter)
 
-        if configs.task.contact_number:
-            average_contact_number = np.mean(
-                [d["contact_number"] for d in data_lst]
-            )
+    if configs.task.scale_fig:
+        save_path = os.path.join(os.path.dirname(configs.log_path), "objscale.png")
+        draw_obj_scale_fig(data_lst, save_path)
 
     if configs.task.diversity:
+        pca_eigenvalue = get_diversity(data_lst)
         logging.info(f"Diversity: {pca_eigenvalue}")
-    if configs.task.contact_number:
-        logging.info(f"Contact Number: {average_contact_number}")
+
+    average_penetration_depth = np.mean([d["ho_pene"] for d in data_lst])
+    logging.info(f"Penetration depth: {average_penetration_depth}")
+    average_self_penetration_depth = np.mean([d["self_pene"] for d in data_lst])
+    logging.info(f"Self-penetration depth: {average_self_penetration_depth}")
+    average_contact_distance = np.mean([d["contact_dist"] for d in data_lst])
+    logging.info(f"Contact distance: {average_contact_distance}")
+    average_contact_number = np.mean([d["contact_num"] for d in data_lst])
+    logging.info(f"Contact number: {average_contact_number}")
+    average_contact_consis = np.mean([d["contact_consis"] for d in data_lst])
+    logging.info(f"Contact consistency: {average_contact_consis}")

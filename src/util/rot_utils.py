@@ -1,10 +1,13 @@
+"""
+Most codes in this file are from pytorch3d:
+
+https://github.com/facebookresearch/pytorch3d/tree/main
+
+"""
+
 import torch
 import numpy as np
 import transforms3d.quaternions as tq
-
-
-def torch_pose_multiply(r1, t1, r2, t2):
-    return r1 @ r2, t2 @ r1.transpose(-1, -2) + t1
 
 
 def np_normalize_vector(v):
@@ -220,7 +223,7 @@ def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
     return torch.where(quaternions[..., 0:1] < 0, -quaternions, quaternions)
 
 
-def matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
+def torch_matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
     """
     Convert rotations given as rotation matrices to quaternions.
 
@@ -369,4 +372,4 @@ def torch_quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
 
 
 def torch_matrix_to_axis_angle(matrix):
-    return torch_quaternion_to_axis_angle(matrix_to_quaternion(matrix))
+    return torch_quaternion_to_axis_angle(torch_matrix_to_quaternion(matrix))
