@@ -112,18 +112,6 @@ class GraspQP:
 
         # Minimize_x 1/2*x^T @ P_matrix @ x + q_matrix^T @ x
         # Subject to G_matrix @ x <= h_matrix
-        # print(
-        #     np.linalg.norm(P_matrix),
-        #     np.linalg.norm(q_matrix),
-        #     np.linalg.norm(self.G_matrix),
-        #     np.linalg.norm(self.h_matrix),
-        # )
-        # print(
-        #     np.sum(P_matrix),
-        #     np.sum(q_matrix),
-        #     np.sum(self.G_matrix),
-        #     np.sum(self.h_matrix),
-        # )
         solution = solve_qp(
             P=scipy.sparse.csc.csc_matrix(P_matrix),
             q=q_matrix,

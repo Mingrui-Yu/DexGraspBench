@@ -186,6 +186,8 @@ class EvalOne:
             # 2. Check large penetration
             if not self._check_large_penetration():
                 succ_flag = False
+                delta_pos = 100
+                delta_angle = 100
                 break
 
             # 3. Move hand to grasp pose
@@ -275,6 +277,8 @@ class EvalOne:
                 "contact_dist": contact_dist,
                 "contact_consis": contact_consis,
                 "succ_flag": succ_flag,
+                "delta_pos": delta_pos,
+                "delta_angle": delta_angle,
             }
             for key in [
                 "hand_pose",
@@ -313,9 +317,9 @@ def task_eval(configs):
         ]
         input_path_lst = list(set(input_path_lst).difference(set(eval_path_lst)))
 
-    if configs.task.mini_set > 0:
+    if configs.task.max_num > 0:
         input_path_lst = np.random.permutation(sorted(input_path_lst))[
-            : configs.task.mini_set
+            : configs.task.max_num
         ]
     logging.info(f"Find {len(input_path_lst)} graspdata")
 
