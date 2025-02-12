@@ -5,7 +5,7 @@ from glob import glob
 import logging
 import multiprocessing
 
-from util.hand_fk import RobotKinematics
+from util.hand_util import RobotKinematics
 
 
 def _single_visd(params):

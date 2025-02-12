@@ -1,6 +1,8 @@
-import numpy as np
 import os
+import trimesh
+import numpy as np
 import mujoco
+import transforms3d.quaternions as tq
 
 
 class HOMjSpec:
@@ -9,7 +11,21 @@ class HOMjSpec:
     hf_name: str = "hand_freejoint"
     of_name: str = "obj_freejoint"
 
-    def __init__(self, xml_path, hand_tendon_cfg):
+    def __init__(
+        self,
+        obj_path,
+        obj_pose,
+        obj_scale,
+        obj_density,
+        hand_xml_path,
+        hand_tendon_cfg,
+        friction_coef,
+        has_floor_z0,
+        pregrasp_pose,
+        pregrasp_qpos,
+        grasp_pose,
+        grasp_qpos,
+    ):
         self.hand_tendon_cfg = {}
         if hand_tendon_cfg is not None:
             for k, v in hand_tendon_cfg.items():
@@ -34,7 +50,18 @@ class HOMjSpec:
             height=512,
         )
 
-        self.joint_names, self.actuator_targets = self._add_hand(xml_path)
+        self.joint_names, self.actuator_targets = self._add_hand(hand_xml_path)
+        self._add_object(
+            obj_path,
+            obj_pose,
+            obj_scale,
+            has_floor_z0,
+            obj_density=obj_density,
+        )
+        self._set_friction(friction_coef)
+        self._add_key(pregrasp_pose, pregrasp_qpos, obj_pose)
+        self._add_key(grasp_pose, grasp_qpos, obj_pose)
+
         return
 
     def _add_hand(self, xml_path):
@@ -76,7 +103,7 @@ class HOMjSpec:
         actuator_targets = [actuator.target for actuator in self.spec.actuators]
         return joint_names, actuator_targets
 
-    def add_object(
+    def _add_object(
         self,
         obj_path,
         obj_pose,
@@ -128,7 +155,7 @@ class HOMjSpec:
 
         return
 
-    def add_key(self, hand_pose, hand_qpos, obj_pose):
+    def _add_key(self, hand_pose, hand_qpos, obj_pose):
 
         key_qpos = self.merge_pose_qpos(hand_pose, hand_qpos, obj_pose)
         key_ctrl = self.qpos_to_ctrl(hand_qpos)
@@ -138,7 +165,7 @@ class HOMjSpec:
 
         return
 
-    def set_friction(self, test_friction):
+    def _set_friction(self, test_friction):
         self.spec.option.cone = mujoco.mjtCone.mjCONE_ELLIPTIC
         self.spec.option.noslip_iterations = 2
         for g in self.spec.geoms:
@@ -169,26 +196,113 @@ class HOMjSpec:
         return key_ctrl
 
 
-def build_spec_for_test(
-    obj_path,
-    obj_pose,
-    obj_scale,
-    obj_density,
-    hand_xml_path,
-    hand_pose,
-    hand_qpos,
-    hand_tendon,
-    friction_coef,
-    has_floor_z0,
-):
-    hospec = HOMjSpec(hand_xml_path, hand_tendon)
-    hospec.add_object(
-        obj_path,
-        obj_pose,
-        obj_scale,
-        has_floor_z0,
-        obj_density=obj_density,
+class RobotKinematics:
+    def __init__(self, xml_path):
+        spec = mujoco.MjSpec.from_file(xml_path)
+        self.mj_model = spec.compile()
+        self.mj_data = mujoco.MjData(self.mj_model)
+
+        self.mesh_geom_info = {}
+        for i in range(self.mj_model.ngeom):
+            geom = self.mj_model.geom(i)
+            mesh_id = geom.dataid
+            if mesh_id != -1:
+                mjm = self.mj_model.mesh(mesh_id)
+                vert = self.mj_model.mesh_vert[
+                    mjm.vertadr[0] : mjm.vertadr[0] + mjm.vertnum[0]
+                ]
+                face = self.mj_model.mesh_face[
+                    mjm.faceadr[0] : mjm.faceadr[0] + mjm.facenum[0]
+                ]
+                body_name = self.mj_model.body(geom.bodyid).name
+                mesh_name = mjm.name
+                self.mesh_geom_info[f"{body_name}_{mesh_name}"] = {
+                    "vert": vert,
+                    "face": face,
+                    "geom_id": i,
+                }
+
+        return
+
+    def forward_kinematics(self, q):
+        self.mj_data.qpos = q
+        mujoco.mj_kinematics(self.mj_model, self.mj_data)
+        return
+
+    def get_init_meshes(self):
+        init_mesh_lst = []
+        mesh_name_lst = []
+        for k, v in self.mesh_geom_info.items():
+            mesh_name_lst.append(k)
+            init_mesh_lst.append(trimesh.Trimesh(vertices=v["vert"], faces=v["face"]))
+        return mesh_name_lst, init_mesh_lst
+
+    def get_poses(self, root_pose):
+        geom_poses = np.zeros((len(self.mesh_geom_info), 7))
+        root_rot = tq.quat2mat(root_pose[3:])
+        root_trans = root_pose[:3]
+        for i, v in enumerate(self.mesh_geom_info.values()):
+            geom_trans = self.mj_data.geom_xpos[v["geom_id"]]
+            geom_rot = self.mj_data.geom_xmat[v["geom_id"]].reshape(3, 3)
+            geom_poses[i, :3] = root_rot @ geom_trans + root_trans
+            geom_poses[i, 3:] = tq.mat2quat(root_rot @ geom_rot)
+        return geom_poses
+
+    def get_posed_meshes(self):
+        full_tm = []
+        for k, v in self.mesh_geom_info.items():
+            geom_rot = self.mj_data.geom_xmat[v["geom_id"]].reshape(3, 3)
+            geom_trans = self.mj_data.geom_xpos[v["geom_id"]]
+            posed_vert = v["vert"] @ geom_rot.T + geom_trans
+            posed_tm = trimesh.Trimesh(vertices=posed_vert, faces=v["face"])
+            full_tm.append(posed_tm)
+        full_tm = trimesh.util.concatenate(full_tm)
+        return full_tm
+
+
+def get_pregrasp_grasp_squeeze_poses(grasp_data, pose_config):
+    # grasp
+    grasp_pose = grasp_data["hand_pose"]
+    grasp_qpos = grasp_data["hand_qpos"]
+
+    # pregrasp
+    if pose_config.pregrasp_type is None:
+        pregrasp_pose = grasp_data["pregrasp_pose"]
+        pregrasp_qpos = grasp_data["pregrasp_qpos"]
+    elif pose_config.pregrasp_type == "minus":
+        pregrasp_pose = grasp_pose
+        pregrasp_qpos = grasp_qpos - pose_config.pregrasp_coef_minus
+    elif pose_config.pregrasp_type == "multiply":
+        pregrasp_pose = grasp_pose
+        pregrasp_qpos = grasp_qpos * pose_config.pregrasp_coef_multiply
+    else:
+        raise NotImplementedError
+
+    # squeeze pose
+    if pose_config.squeeze_type is None:
+        squeeze_pose = grasp_data["hand_pose"]
+        squeeze_qpos = grasp_data["squeeze_qpos"]
+    elif pose_config.squeeze_type == "multiply":
+        squeeze_pose = grasp_pose
+        squeeze_qpos = (
+            grasp_qpos - pregrasp_qpos
+        ) * pose_config.squeeze_coef + grasp_qpos
+    else:
+        raise NotImplementedError
+
+    return {
+        "pregrasp": [pregrasp_pose, pregrasp_qpos],
+        "grasp": [grasp_pose, grasp_qpos],
+        "squeeze": [squeeze_pose, squeeze_qpos],
+    }
+
+
+if __name__ == "__main__":
+    xml_path = os.path.join(
+        os.path.dirname(__file__), "../../assets/hand/shadow/customized.xml"
     )
-    hospec.add_key(hand_pose, hand_qpos, obj_pose)
-    hospec.set_friction(friction_coef)
-    return hospec
+    kinematic = RobotKinematics(xml_path)
+    hand_qpos = np.zeros((22))
+    kinematic.forward_kinematics(hand_qpos)
+    visual_mesh = kinematic.get_posed_meshes()
+    visual_mesh.export(f"debug_hand.obj")

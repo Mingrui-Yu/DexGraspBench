@@ -2,17 +2,32 @@ import os
 import multiprocessing
 import logging
 import pdb
-import glob
+from glob import glob
 import traceback
 from copy import deepcopy
 
 import numpy as np
 import mujoco
 import mujoco.viewer
+from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Slerp
 
-from util.rot_utils import np_get_delta_qpos
-from util.mujoco_utils import build_spec_for_test
-from util.file_utils import load_json
+from util.rot_util import np_get_delta_qpos
+from util.hand_util import HOMjSpec, get_pregrasp_grasp_squeeze_poses
+from util.file_util import load_json
+
+
+def interplote_pose(pose1: np.array, pose2: np.array, step: int) -> np.array:
+    trans1, quat1 = pose1[:3], pose1[3:7]
+    trans2, quat2 = pose2[:3], pose2[3:7]
+    slerp = Slerp([0, 1], R.from_quat([quat1, quat2], scalar_first=True))
+    trans_interp = np.linspace(trans1, trans2, step + 1)[1:]
+    quat_interp = slerp(np.linspace(0, 1, step + 1))[1:].as_quat(scalar_first=True)
+    return np.concatenate([trans_interp, quat_interp], axis=1)
+
+
+def interplote_qpos(qpos1: np.array, qpos2: np.array, step: int) -> np.array:
+    return np.linspace(qpos1, qpos2, step + 1)[1:]
 
 
 class EvalOne:
@@ -31,17 +46,19 @@ class EvalOne:
         )
 
         # Build mj_spec
-        self.hospec = build_spec_for_test(
+        self.hospec = HOMjSpec(
             obj_path=self.grasp_data["obj_path"],
             obj_pose=self.grasp_data["obj_pose"],
             obj_scale=self.grasp_data["obj_scale"],
             has_floor_z0=False,
             obj_density=new_obj_density,
             hand_xml_path=configs.hand.xml_path,
-            hand_pose=self.grasp_data["hand_pose"],
-            hand_qpos=self.grasp_data["hand_qpos"],
-            hand_tendon=configs.hand.tendon,
+            hand_tendon_cfg=configs.hand.tendon,
             friction_coef=configs.task.miu_coef,
+            grasp_pose=self.grasp_data["hand_pose"],
+            grasp_qpos=self.grasp_data["hand_qpos"],
+            pregrasp_pose=self.grasp_data["pregrasp_pose"],
+            pregrasp_qpos=self.grasp_data["pregrasp_qpos"],
         )
 
         # Get ready for simulation
@@ -57,7 +74,7 @@ class EvalOne:
         mujoco.mj_forward(self.mj_model, self.mj_data)
         return
 
-    def _penetration_and_contact(self):
+    def _eval_pene_and_contact(self):
         for i in range(self.mj_model.ngeom):
             if "object_collision" in self.mj_model.geom(i).name:
                 self.mj_model.geom_margin[i] = self.mj_model.geom_gap[i] = (
@@ -88,17 +105,21 @@ class EvalOne:
             if (body1_id < hand_id and body2_id == object_id) or (
                 body2_id < hand_id and body1_id == object_id
             ):
-                body_name = body1_name if body2_id == object_id else body2_name
-                for name in contact_dist_dict:
-                    if body_name.startswith(self.hospec.hand_prefix + name):
-                        ho_pene = min(ho_pene, contact.dist)
-                        contact_dist_dict[name] = min(
-                            contact_dist_dict[name], contact.dist
+                ho_pene = min(ho_pene, contact.dist)
+                body_name = (
+                    body1_name.removeprefix(self.hospec.hand_prefix)
+                    if body2_id == object_id
+                    else body2_name.removeprefix(self.hospec.hand_prefix)
+                )
+                for finger_prefix in contact_dist_dict:
+                    if body_name.startswith(finger_prefix):
+                        contact_dist_dict[finger_prefix] = min(
+                            contact_dist_dict[finger_prefix], contact.dist
                         )
+                        break
                 if (
                     np.abs(contact.dist) < self.configs.task.contact_threshold
-                    and body_name.removeprefix(self.hospec.hand_prefix)
-                    in self.configs.hand.valid_body_name
+                    and body_name in self.configs.hand.valid_body_name
                 ):
                     contact_link_set.add(body_name)
             elif body1_id < hand_id and body2_id < hand_id:
@@ -112,6 +133,20 @@ class EvalOne:
         self.mj_model.geom_gap = 0
         return ho_pene, self_pene, contact_number, contact_distance, contact_consistency
 
+    def _check_large_penetration(self):
+        for jj, contact in enumerate(self.mj_data.contact):
+            body1_id = self.mj_model.geom(contact.geom1).bodyid
+            body2_id = self.mj_model.geom(contact.geom2).bodyid
+            total_body_num = self.mj_model.nbody
+            object_id = total_body_num - 1
+            hand_id = total_body_num - 2
+            if contact.dist < -self.configs.task.max_pene and (
+                (body1_id < hand_id and body2_id == object_id)
+                or (body2_id < hand_id and body1_id == object_id)
+            ):
+                return False
+        return True
+
     def _resist_obj_gravity(self):
         if self.configs.debug_viewer:
             viewer = mujoco.viewer.launch_passive(self.mj_model, self.mj_data)
@@ -121,33 +156,9 @@ class EvalOne:
         _, _, pre_obj_pose = self.hospec.split_qpos_pose(self.mj_data.qpos)
         pre_obj_qpos = deepcopy(pre_obj_pose)
 
-        grasp_hand_qpos = self.grasp_data["hand_qpos"]
-        if (
-            self.configs.task.pregrasp_type == "real"
-            and "pregrasp_qpos" in self.grasp_data
-        ):
-            pregrasp_hand_qpos = self.grasp_data["pregrasp_qpos"]
-        elif self.configs.task.pregrasp_type == "minus":
-            pregrasp_hand_qpos = (
-                deepcopy(grasp_hand_qpos) - self.configs.task.pregrasp_minus
-            )
-        elif self.configs.task.pregrasp_type == "multiply":
-            pregrasp_hand_qpos = grasp_hand_qpos * np.where(
-                grasp_hand_qpos > 0,
-                self.configs.task.pregrasp_multiply,
-                2 - self.configs.task.pregrasp_multiply,
-            )
-
-        if (
-            self.configs.task.squeeze_type == "real"
-            and "squeeze_qpos" in self.grasp_data
-        ):
-            squeeze_hand_qpos = self.grasp_data["squeeze_qpos"]
-            pregrasp_hand_qpos = self.grasp_data["hand_qpos"]
-        else:
-            squeeze_hand_qpos = (
-                grasp_hand_qpos - pregrasp_hand_qpos
-            ) * self.configs.task.squeeze_ratio + grasp_hand_qpos
+        pose_dict = get_pregrasp_grasp_squeeze_poses(
+            self.grasp_data, self.configs.pose_config
+        )
 
         dense_actuator_moment = np.zeros((self.mj_model.nu, self.mj_model.nv))
         mujoco.mju_sparse2dense(
@@ -157,28 +168,62 @@ class EvalOne:
             self.mj_data.moment_rowadr,
             self.mj_data.moment_colind,
         )
-        squeeze_hand_ctrl = dense_actuator_moment[:, 6:-6] @ squeeze_hand_qpos
-        grasp_hand_ctrl = dense_actuator_moment[:, 6:-6] @ grasp_hand_qpos
+        pregrasp_ctrl = dense_actuator_moment[:, 6:-6] @ pose_dict["pregrasp"][1]
+        grasp_ctrl = dense_actuator_moment[:, 6:-6] @ pose_dict["grasp"][1]
+        squeeze_ctrl = dense_actuator_moment[:, 6:-6] @ pose_dict["squeeze"][1]
 
         external_force_direction = np.array(self.configs.task.external_force_direction)
 
         for i in range(len(external_force_direction)):
+            # 1. Reset to pre-grasp pose
             mujoco.mj_resetDataKeyframe(
-                self.mj_model, self.mj_data, self.mj_model.nkey - 1
+                self.mj_model, self.mj_data, self.mj_model.nkey - 2
             )
             self.mj_data.qfrc_applied[:] = 0.0
             self.mj_data.xfrc_applied[:] = 0.0
             mujoco.mj_forward(self.mj_model, self.mj_data)
-            for j in range(10):
-                self.mj_data.ctrl[:] = (j + 1) / 10 * (
-                    squeeze_hand_ctrl - grasp_hand_ctrl
-                ) + grasp_hand_ctrl
+
+            # 2. Check large penetration
+            if not self._check_large_penetration():
+                succ_flag = False
+                break
+
+            # 3. Move hand to grasp pose
+            step_num = 10
+            pose_interp = interplote_pose(
+                pose_dict["pregrasp"][0], pose_dict["grasp"][0], step_num
+            )
+            qpos_interp = interplote_qpos(pregrasp_ctrl, grasp_ctrl, step_num)
+            for j in range(step_num):
+                self.mj_data.mocap_pos[0] = pose_interp[j, :3]
+                self.mj_data.mocap_quat[0] = pose_interp[j, 3:7]
+                self.mj_data.ctrl[:] = qpos_interp[j]
                 mujoco.mj_forward(self.mj_model, self.mj_data)
                 for _ in range(10):
                     mujoco.mj_step(self.mj_model, self.mj_data)
+
+            # 4. Move hand to squeeze pose.
+            # NOTE step 3 and 4 are seperate because pre -> grasp -> squeeze are stage-wise linear.
+            # If step 3 and 4 are merged to one linear interpolation, the performance will drop a lot.
+            step_num = 10
+            pose_interp = interplote_pose(
+                pose_dict["grasp"][0], pose_dict["squeeze"][0], step_num
+            )
+            qpos_interp = interplote_qpos(grasp_ctrl, squeeze_ctrl, step_num)
+            for j in range(step_num):
+                self.mj_data.mocap_pos[0] = pose_interp[j, :3]
+                self.mj_data.mocap_quat[0] = pose_interp[j, 3:7]
+                self.mj_data.ctrl[:] = qpos_interp[j]
+                mujoco.mj_forward(self.mj_model, self.mj_data)
+                for _ in range(10):
+                    mujoco.mj_step(self.mj_model, self.mj_data)
+
+            # 5. Add external force on the object
             self.mj_data.xfrc_applied[-1] = (
                 10 * external_force_direction[i] * self.configs.task.obj_mass
             )
+
+            # 6. Wait for 2 seconds
             for j in range(10):
                 for _ in range(50):
                     mujoco.mj_step(self.mj_model, self.mj_data)
@@ -207,7 +252,7 @@ class EvalOne:
 
     def run(self):
         ho_pene, self_pene, contact_num, contact_dist, contact_consis = (
-            self._penetration_and_contact()
+            self._eval_pene_and_contact()
         )
         succ_flag, delta_pos, delta_angle = self._resist_obj_gravity()
         succ_npy_path = self.input_npy_path.replace(
@@ -259,20 +304,19 @@ def safe_eval_one(params):
 
 
 def task_eval(configs):
-    input_path_lst = glob.glob(
-        os.path.join(configs.grasp_dir, *list(configs.data_struct))
-    )
+    input_path_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
+
     if configs.skip:
-        eval_path_lst = glob.glob(
-            os.path.join(configs.eval_dir, *list(configs.data_struct))
-        )
+        eval_path_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
         eval_path_lst = [
             p.replace(configs.eval_dir, configs.grasp_dir) for p in eval_path_lst
         ]
         input_path_lst = list(set(input_path_lst).difference(set(eval_path_lst)))
 
     if configs.task.mini_set > 0:
-        input_path_lst = input_path_lst[: configs.task.mini_set]
+        input_path_lst = np.random.permutation(sorted(input_path_lst))[
+            : configs.task.mini_set
+        ]
     logging.info(f"Find {len(input_path_lst)} graspdata")
 
     if len(input_path_lst) == 0:
@@ -288,5 +332,10 @@ def task_eval(configs):
             results = list(result_iter)
 
     logging.info(f"Finish")
-
+    grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
+    succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
+    eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
+    logging.info(
+        f"Find {len(grasp_lst)} grasp data, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
+    )
     return

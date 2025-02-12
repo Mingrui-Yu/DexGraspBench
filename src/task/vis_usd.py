@@ -8,40 +8,36 @@ import traceback
 import numpy as np
 from transforms3d import quaternions as tq
 
-from util.hand_fk import RobotKinematics
+from util.hand_util import RobotKinematics, get_pregrasp_grasp_squeeze_poses
 from util.usd_helper import UsdHelper, Material
 
 
 def read_npy(params):
-    npy_path, xml_path, task_config = params[0], params[1], params[2]
+    npy_path, xml_path, configs = params[0], params[1], params[2]
+    task_config = configs.task
     data = np.load(npy_path, allow_pickle=True).item()
     hand_fk = RobotKinematics(xml_path)
 
-    hand_pose_name_lst = []
-    if "pregrasp" in task_config.data_type:
-        hand_pose_name_lst.append(["pregrasp_pose", "pregrasp_qpos"])
-    if "grasp" in task_config.data_type:
-        hand_pose_name_lst.append(["hand_pose", "hand_qpos"])
-    if "squeeze" in task_config.data_type:
-        hand_pose_name_lst.append(["hand_pose", "squeeze_qpos"])
+    pose_dict = get_pregrasp_grasp_squeeze_poses(data, configs.pose_config)
 
     obj_pose_lst = []
     hand_pose_lst = []
-    for hand_pose_names in hand_pose_name_lst:
-        pose_name, qpos_name = hand_pose_names[0], hand_pose_names[1]
-        if len(hand_fk.mj_data.qpos) == len(data[qpos_name]) + 7:
-            qpos = np.concatenate([np.array([0.0, 0, 0, 1, 0, 0, 0]), data[qpos_name]])
-        elif len(hand_fk.mj_data.qpos) == len(data[qpos_name]):
-            qpos = data[qpos_name]
+    for data_name in task_config.data_type:
+        hand_pose = pose_dict[data_name][0]
+        hand_qpos = pose_dict[data_name][1]
+        if len(hand_fk.mj_data.qpos) == len(hand_qpos) + 7:
+            qpos = np.concatenate([np.array([0.0, 0, 0, 1, 0, 0, 0]), hand_qpos])
+        elif len(hand_fk.mj_data.qpos) == len(hand_qpos):
+            qpos = hand_qpos
         else:
             raise NotImplementedError(
-                f"qpos length: {len(data[qpos_name])}; xml length: {len(hand_fk.mj_data.qpos)}"
+                f"qpos length: {len(hand_qpos)}; xml length: {len(hand_fk.mj_data.qpos)}"
             )
 
         if task_config.normalize_hand:
             # Normalize to hand space
-            ht = data[pose_name][:3]
-            hr = tq.quat2mat(data[pose_name][3:])
+            ht = hand_pose[:3]
+            hr = tq.quat2mat(hand_pose[3:])
             oT = data["obj_pose"][:3]
             oR = tq.quat2mat(data["obj_pose"][3:])
             new_oR = hr.T @ oR
@@ -54,7 +50,7 @@ def read_npy(params):
             new_hand_pose[:3] += delta_bias
         else:
             new_obj_pose = data["obj_pose"]
-            new_hand_pose = data[pose_name]
+            new_hand_pose = hand_pose
 
         hand_fk.forward_kinematics(qpos)
         hand_link_pose = hand_fk.get_poses(new_hand_pose)
@@ -120,7 +116,7 @@ def task_vusd(configs):
 
     logging.info(f"Visualize {len(input_file_lst)} grasp")
 
-    param_lst = [(i, configs.hand.xml_path, configs.task) for i in input_file_lst]
+    param_lst = [(i, configs.hand.xml_path, configs) for i in input_file_lst]
     with multiprocessing.Pool(processes=configs.n_worker) as pool:
         result_iter = pool.imap_unordered(read_npy_safe, param_lst)
         result_iter = [r for r in list(result_iter) if r is not None]

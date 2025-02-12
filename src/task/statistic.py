@@ -6,7 +6,7 @@ import logging
 import matplotlib.pyplot as plt
 import torch
 
-from util.rot_utils import torch_quaternion_to_matrix, torch_matrix_to_axis_angle
+from util.rot_util import torch_quaternion_to_matrix, torch_matrix_to_axis_angle
 
 
 def draw_obj_scale_fig(data_lst, save_path):
@@ -98,7 +98,7 @@ def task_stat(configs):
         data_lst = list(result_iter)
 
     if configs.task.scale_fig:
-        save_path = os.path.join(os.path.dirname(configs.log_path), "objscale.png")
+        save_path = os.path.join(configs.log_dir, "objscale_distribution.png")
         draw_obj_scale_fig(data_lst, save_path)
 
     if configs.task.diversity:

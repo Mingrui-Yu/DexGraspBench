@@ -13,9 +13,3 @@ external_force_direction: # Final force = 10 * direction * obj_mass
   - [0.0, -1, 0, 0, 0, 0]
   - [0.0, 0, 1, 0, 0, 0]
   - [0.0, 0, -1, 0, 0, 0]
-
-squeeze_type: "real"    # "real" or "heuristic"
-squeeze_ratio: 1        # squeeze=(grasp-pregrasp)*squeeze_ratio+grasp
-pregrasp_type: "real"   # "real" or "minus" or "multiply"
-pregrasp_minus: 0.05    # pregrasp=grasp-pg_minus
-pregrasp_multiply: 0.9  # pregrasp=grasp*pg_multiply

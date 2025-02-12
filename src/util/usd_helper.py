@@ -16,7 +16,7 @@ except ImportError:
         + " NOTE: Do not install this if using with ISAAC SIM."
     )
 
-from .rot_utils import even_sample_points_on_sphere
+from .rot_util import even_sample_points_on_sphere
 
 
 def create_view_matrix(position, target):

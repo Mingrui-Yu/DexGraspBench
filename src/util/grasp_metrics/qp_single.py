@@ -5,7 +5,7 @@ from qpsolvers import solve_qp
 import scipy
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from util.rot_utils import np_normalize_vector, np_normal_to_rot
+from util.rot_util import np_normalize_vector, np_normal_to_rot
 
 
 class GraspQP:
