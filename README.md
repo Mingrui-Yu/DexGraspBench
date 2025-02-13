@@ -1,14 +1,16 @@
 # DexGraspBench
 
-A simulation benchmark for dexterous grasping, proposed in *BODex: Scalable and Efficient Robotic Dexterous Grasp Synthesis Using Bilevel Optimization [ICRA 2025]*.
+A simulation benchmark in [MuJoCo](https://github.com/google-deepmind/mujoco/) for dexterous grasping, proposed in *BODex: Scalable and Efficient Robotic Dexterous Grasp Synthesis Using Bilevel Optimization [ICRA 2025]*.
 
 [Project page](https://pku-epic.github.io/BODex/) ｜ [Paper](https://arxiv.org/abs/2412.16490)
 
 ## Highlight
 
-1. Reproducibility and high-quality collision resolution powered by [MuJoCo](https://github.com/google-deepmind/mujoco/).
-2. Benchmarking both optimization-based grasp synthesis methods (including [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release), and [BODex](https://pku-epic.github.io/BODex/)) and several data-driven baselines (including CVAE, Diffusion Model, and Normalizing Flow).
-3. Supporting both force-closure and tabletop grasp evaluation.
+1. **Reproducibility and high-quality physics simulation**, powered by [MuJoCo](https://github.com/google-deepmind/mujoco/).
+2. **Comprehensive metrics**, including simulation success rate, analytic grasp quality metrics, penetration depth, contact quality, and data diversity, etc.
+3. **Support for multiple settings**, including different hands (Allegro, Shadow, Leap), data formats (motion sequences, static poses), and scenarios (force-closure, tabletop).
+5. **Benchmarking diverse methods**, including optimization-based grasp synthesis methods (e.g., [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release), and [BODex](https://pku-epic.github.io/BODex/)) and data-driven baselines (e.g., CVAE, Diffusion Model, and Normalizing Flow).
+
 
 ## Installation
 1. Clone the third-party library [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie).
@@ -28,6 +30,7 @@ pip install transforms3d
 pip install matplotlib
 pip install scikit-learn
 pip install usd-core
+pip install imageio
 ```
 
 ## Object Asset Preparation

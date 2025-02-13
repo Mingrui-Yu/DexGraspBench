@@ -49,6 +49,14 @@ class HOMjSpec:
             width=512,
             height=512,
         )
+        self.spec.worldbody.add_light(
+            name="spotlight",
+            pos=[0, -1, 2],
+            castshadow=False,
+        )
+        self.spec.worldbody.add_camera(
+            name="closeup", pos=[0.4, -0.02, 0.15], xyaxes=[0, 1, 0, 0, 0, 1]
+        )
 
         self.joint_names, self.actuator_targets = self._add_hand(hand_xml_path)
         self._add_object(
@@ -111,14 +119,12 @@ class HOMjSpec:
         has_floor_z0,
         obj_density=1000,
     ):
-        # TODO: be careful about the floor for testing!
         if has_floor_z0:
             floor_geom = self.spec.worldbody.add_geom(
                 name="object_collision_floor",
                 type=mujoco.mjtGeom.mjGEOM_PLANE,
                 pos=[0, 0, 0],
                 size=[0, 0, 1.0],
-                margin=0.02,
             )
 
         obj_body = self.spec.worldbody.add_body(

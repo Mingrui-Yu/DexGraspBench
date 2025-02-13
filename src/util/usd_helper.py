@@ -158,7 +158,6 @@ class UsdHelper:
         mesh: trimesh.Trimesh,
         mesh_name: str,
         base_frame: str = "/world/obstacles",
-        enable_physics: bool = False,
         visible_time=None,
         material: Material = None,
     ):
@@ -177,7 +176,6 @@ class UsdHelper:
         obj_prim.CreateAttribute(
             "physics:rigidBodyEnabled", Sdf.ValueTypeNames.Bool, custom=False
         )
-        obj_prim.GetAttribute("physics:rigidBodyEnabled").Set(enable_physics)
         if visible_time is not None:
             obj_geom.GetVisibilityAttr().Set("invisible", Usd.TimeCode(0))
             obj_geom.GetVisibilityAttr().Set("inherited", Usd.TimeCode(visible_time[0]))

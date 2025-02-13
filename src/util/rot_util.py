@@ -8,6 +8,21 @@ https://github.com/facebookresearch/pytorch3d/tree/main
 import torch
 import numpy as np
 import transforms3d.quaternions as tq
+from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Slerp
+
+
+def interplote_pose(pose1: np.array, pose2: np.array, step: int) -> np.array:
+    trans1, quat1 = pose1[:3], pose1[3:7]
+    trans2, quat2 = pose2[:3], pose2[3:7]
+    slerp = Slerp([0, 1], R.from_quat([quat1, quat2], scalar_first=True))
+    trans_interp = np.linspace(trans1, trans2, step + 1)[1:]
+    quat_interp = slerp(np.linspace(0, 1, step + 1))[1:].as_quat(scalar_first=True)
+    return np.concatenate([trans_interp, quat_interp], axis=1)
+
+
+def interplote_qpos(qpos1: np.array, qpos2: np.array, step: int) -> np.array:
+    return np.linspace(qpos1, qpos2, step + 1)[1:]
 
 
 def np_normalize_vector(v):

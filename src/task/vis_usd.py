@@ -172,5 +172,14 @@ def task_vusd(configs):
         obstacles_frame="object",
         material=Material(color=[0.5, 0.5, 0.5, 1.0], name="obj"),
     )
+
+    # Add table
+    if "TableTop" in configs.setting:
+        usd_helper.add_mesh_to_stage(
+            trimesh.primitives.Box([0.5, 0.5, 0.2], [0.0, 0.0, -0.1]),
+            "table",
+            base_frame="/world/table",
+        )
+
     logging.info(f"Save to {os.path.abspath(save_path)}")
     usd_helper.write_stage_to_file(save_path)

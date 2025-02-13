@@ -1,15 +1,11 @@
 max_num: -1
 
-contact_margin: 0.01  # unit: m
+contact_margin: 0.01  # unit: m. Max contact distance.
 contact_threshold: 0.002
 
-max_pene: 0.01  # If pre-grasp penetrates too much, it is a failure
-obj_mass: 0.03   # unit: kg 
+max_pene: 0.01  # If the initial hand penetrates the object too much, regard it as a failure
+trans_thre: 0.05
+angle_thre: 15
+
+obj_mass: 0.1   # unit: kg 
 miu_coef: [0.6, 0.02]
-external_force_direction: # Final force = 10 * direction * obj_mass 
-  - [1.0, 0, 0, 0, 0, 0]
-  - [-1.0, 0, 0, 0, 0, 0]
-  - [0.0, 1, 0, 0, 0, 0]
-  - [0.0, -1, 0, 0, 0, 0]
-  - [0.0, 0, 1, 0, 0, 0]
-  - [0.0, 0, -1, 0, 0, 0]

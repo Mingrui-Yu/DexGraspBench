@@ -1,5 +1,6 @@
 skip: True
 n_worker: 48    
+setting: FCMocap # or "TableTopMocap" or "TableTopArm"
 
 exp_name: debug
 save_root: output
@@ -7,8 +8,9 @@ save_dir: ${save_root}/${exp_name}_${hand_name}
 grasp_dir: ${save_dir}/graspdata
 eval_dir: ${save_dir}/evaluation
 succ_dir: ${save_dir}/succgrasp
-vusd_dir: ${save_dir}/visualization_usd
-vobj_dir: ${save_dir}/visualization_obj
+vusd_dir: ${save_dir}/vis_usd
+vobj_dir: ${save_dir}/vis_obj
+debug_dir: ${save_dir}/debug
 data_struct: 
   - "**"
   - "**"
