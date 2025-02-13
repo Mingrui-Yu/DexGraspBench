@@ -13,7 +13,7 @@ from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 
 from util.rot_util import np_get_delta_qpos
-from util.hand_util import HOMjSpec, get_pregrasp_grasp_squeeze_poses
+from util.hand_util import HOMjSpec
 from util.file_util import load_json
 
 
@@ -55,8 +55,8 @@ class EvalOne:
             hand_xml_path=configs.hand.xml_path,
             hand_tendon_cfg=configs.hand.tendon,
             friction_coef=configs.task.miu_coef,
-            grasp_pose=self.grasp_data["hand_pose"],
-            grasp_qpos=self.grasp_data["hand_qpos"],
+            grasp_pose=self.grasp_data["grasp_pose"],
+            grasp_qpos=self.grasp_data["grasp_qpos"],
             pregrasp_pose=self.grasp_data["pregrasp_pose"],
             pregrasp_qpos=self.grasp_data["pregrasp_qpos"],
         )
@@ -69,9 +69,6 @@ class EvalOne:
             with open("debug.xml", "w") as f:
                 f.write(self.hospec.spec.to_xml())
 
-        # Initialize hand pose by setting keyframe
-        mujoco.mj_resetDataKeyframe(self.mj_model, self.mj_data, self.mj_model.nkey - 1)
-        mujoco.mj_forward(self.mj_model, self.mj_data)
         return
 
     def _eval_pene_and_contact(self):
@@ -81,6 +78,7 @@ class EvalOne:
                     self.configs.task.contact_margin
                 )
 
+        mujoco.mj_resetDataKeyframe(self.mj_model, self.mj_data, self.mj_model.nkey - 1)
         mujoco.mj_forward(self.mj_model, self.mj_data)
 
         self_pene = 0
@@ -156,21 +154,17 @@ class EvalOne:
         _, _, pre_obj_pose = self.hospec.split_qpos_pose(self.mj_data.qpos)
         pre_obj_qpos = deepcopy(pre_obj_pose)
 
-        pose_dict = get_pregrasp_grasp_squeeze_poses(
-            self.grasp_data, self.configs.pose_config
-        )
-
-        dense_actuator_moment = np.zeros((self.mj_model.nu, self.mj_model.nv))
+        dense_actu_moment = np.zeros((self.mj_model.nu, self.mj_model.nv))
         mujoco.mju_sparse2dense(
-            dense_actuator_moment,
+            dense_actu_moment,
             self.mj_data.actuator_moment,
             self.mj_data.moment_rownnz,
             self.mj_data.moment_rowadr,
             self.mj_data.moment_colind,
         )
-        pregrasp_ctrl = dense_actuator_moment[:, 6:-6] @ pose_dict["pregrasp"][1]
-        grasp_ctrl = dense_actuator_moment[:, 6:-6] @ pose_dict["grasp"][1]
-        squeeze_ctrl = dense_actuator_moment[:, 6:-6] @ pose_dict["squeeze"][1]
+        pregrasp_ctrl = dense_actu_moment[:, 6:-6] @ self.grasp_data["pregrasp_qpos"]
+        grasp_ctrl = dense_actu_moment[:, 6:-6] @ self.grasp_data["grasp_qpos"]
+        squeeze_ctrl = dense_actu_moment[:, 6:-6] @ self.grasp_data["squeeze_qpos"]
 
         external_force_direction = np.array(self.configs.task.external_force_direction)
 
@@ -193,7 +187,9 @@ class EvalOne:
             # 3. Move hand to grasp pose
             step_num = 10
             pose_interp = interplote_pose(
-                pose_dict["pregrasp"][0], pose_dict["grasp"][0], step_num
+                self.grasp_data["pregrasp_pose"],
+                self.grasp_data["grasp_pose"],
+                step_num,
             )
             qpos_interp = interplote_qpos(pregrasp_ctrl, grasp_ctrl, step_num)
             for j in range(step_num):
@@ -209,7 +205,7 @@ class EvalOne:
             # If step 3 and 4 are merged to one linear interpolation, the performance will drop a lot.
             step_num = 10
             pose_interp = interplote_pose(
-                pose_dict["grasp"][0], pose_dict["squeeze"][0], step_num
+                self.grasp_data["grasp_pose"], self.grasp_data["squeeze_pose"], step_num
             )
             qpos_interp = interplote_qpos(grasp_ctrl, squeeze_ctrl, step_num)
             for j in range(step_num):
@@ -281,10 +277,11 @@ class EvalOne:
                 "delta_angle": delta_angle,
             }
             for key in [
-                "hand_pose",
-                "hand_qpos",
+                "grasp_pose",
+                "grasp_qpos",
                 "pregrasp_pose",
                 "pregrasp_qpos",
+                "squeeze_pose",
                 "squeeze_qpos",
                 "obj_scale",
                 "obj_path",
@@ -309,6 +306,7 @@ def safe_eval_one(params):
 
 def task_eval(configs):
     input_path_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
+    init_num = len(input_path_lst)
 
     if configs.skip:
         eval_path_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
@@ -316,12 +314,14 @@ def task_eval(configs):
             p.replace(configs.eval_dir, configs.grasp_dir) for p in eval_path_lst
         ]
         input_path_lst = list(set(input_path_lst).difference(set(eval_path_lst)))
-
+    skip_num = init_num - len(input_path_lst)
+    input_path_lst = sorted(input_path_lst)
     if configs.task.max_num > 0:
-        input_path_lst = np.random.permutation(sorted(input_path_lst))[
-            : configs.task.max_num
-        ]
-    logging.info(f"Find {len(input_path_lst)} graspdata")
+        input_path_lst = np.random.permutation(input_path_lst)[: configs.task.max_num]
+
+    logging.info(
+        f"Find {init_num} grasp data, skip {skip_num}, and use {len(input_path_lst)}."
+    )
 
     if len(input_path_lst) == 0:
         return
@@ -335,11 +335,12 @@ def task_eval(configs):
             result_iter = pool.imap_unordered(safe_eval_one, iterable_params)
             results = list(result_iter)
 
-    logging.info(f"Finish")
     grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
     succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
     eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
     logging.info(
-        f"Find {len(grasp_lst)} grasp data, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
+        f"Get {len(grasp_lst)} grasp data, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )
+    logging.info(f"Finish evaluation")
+
     return

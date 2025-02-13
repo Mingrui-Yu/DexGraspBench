@@ -1,4 +1,4 @@
 max_num: 100
-vis_success: True
-data_type: ["grasp"] #, "pregrasp", "squeeze"]
+vis_type: raw # or "succ" or "fail" 
+data_type: ["grasp"] # or ["pregrasp", "grasp", "squeeze"]
 normalize_hand: False

@@ -27,6 +27,7 @@ pip install hydra-core
 pip install transforms3d
 pip install matplotlib
 pip install scikit-learn
+pip install usd-core
 ```
 
 ## Object Asset Preparation

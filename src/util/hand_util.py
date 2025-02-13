@@ -260,43 +260,6 @@ class RobotKinematics:
         return full_tm
 
 
-def get_pregrasp_grasp_squeeze_poses(grasp_data, pose_config):
-    # grasp
-    grasp_pose = grasp_data["hand_pose"]
-    grasp_qpos = grasp_data["hand_qpos"]
-
-    # pregrasp
-    if pose_config.pregrasp_type is None:
-        pregrasp_pose = grasp_data["pregrasp_pose"]
-        pregrasp_qpos = grasp_data["pregrasp_qpos"]
-    elif pose_config.pregrasp_type == "minus":
-        pregrasp_pose = grasp_pose
-        pregrasp_qpos = grasp_qpos - pose_config.pregrasp_coef_minus
-    elif pose_config.pregrasp_type == "multiply":
-        pregrasp_pose = grasp_pose
-        pregrasp_qpos = grasp_qpos * pose_config.pregrasp_coef_multiply
-    else:
-        raise NotImplementedError
-
-    # squeeze pose
-    if pose_config.squeeze_type is None:
-        squeeze_pose = grasp_data["hand_pose"]
-        squeeze_qpos = grasp_data["squeeze_qpos"]
-    elif pose_config.squeeze_type == "multiply":
-        squeeze_pose = grasp_pose
-        squeeze_qpos = (
-            grasp_qpos - pregrasp_qpos
-        ) * pose_config.squeeze_coef + grasp_qpos
-    else:
-        raise NotImplementedError
-
-    return {
-        "pregrasp": [pregrasp_pose, pregrasp_qpos],
-        "grasp": [grasp_pose, grasp_qpos],
-        "squeeze": [squeeze_pose, squeeze_qpos],
-    }
-
-
 if __name__ == "__main__":
     xml_path = os.path.join(
         os.path.dirname(__file__), "../../assets/hand/shadow/customized.xml"
