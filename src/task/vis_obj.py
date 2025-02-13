@@ -85,16 +85,6 @@ def task_vobj(configs):
             )
         )
 
-    if configs.task.unique_obj:
-        final_path_lst = []
-        data_dict = {}
-        for p in input_file_lst:
-            folder_name = os.path.dirname(p)
-            if folder_name not in data_dict.keys():
-                data_dict[folder_name] = True
-                final_path_lst.append(p)
-        input_file_lst = final_path_lst
-
     if configs.task.max_num > 0 and len(input_file_lst) > configs.task.max_num:
         input_file_lst = np.random.permutation(input_file_lst)[: configs.task.max_num]
 

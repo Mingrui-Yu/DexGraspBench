@@ -55,7 +55,9 @@ def read_npy(params):
         hand_fk.forward_kinematics(qpos)
         hand_link_pose = hand_fk.get_poses(new_hand_pose)
 
-        obj_pose_lst.append(np.concatenate([new_obj_pose, data["obj_scale"]], axis=-1))
+        obj_pose_lst.append(
+            np.concatenate([new_obj_pose, [data["obj_scale"]]], axis=-1)
+        )
         hand_pose_lst.append(hand_link_pose)
 
     obj_path = data["obj_path"]
@@ -100,16 +102,6 @@ def task_vusd(configs):
                 set([p.replace(configs.succ_dir, configs.eval_dir) for p in succ_lst])
             )
         )
-
-    if configs.task.unique_obj:
-        final_path_lst = []
-        data_dict = {}
-        for p in input_file_lst:
-            folder_name = os.path.dirname(p)
-            if folder_name not in data_dict.keys():
-                data_dict[folder_name] = True
-                final_path_lst.append(p)
-        input_file_lst = final_path_lst
 
     if configs.task.max_num > 0 and len(input_file_lst) > configs.task.max_num:
         input_file_lst = np.random.permutation(input_file_lst)[: configs.task.max_num]
