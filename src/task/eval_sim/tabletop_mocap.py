@@ -4,15 +4,11 @@ import pdb
 from copy import deepcopy
 
 import numpy as np
-import mujoco
-import mujoco.viewer
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from util.rot_util import interplote_pose, interplote_qpos, np_get_delta_qpos
-from task.eval_sim.basic import BasicEval
+from .base import BaseEval
 
 
-class TableTopMocapEval(BasicEval):
+class TableTopMocapEval(BaseEval):
     def _eval_external_force_details(self, pre_obj_qpos):
         # 1. Set object gravity
         external_force_direction = np.array([0.0, 0, -1, 0, 0, 0])

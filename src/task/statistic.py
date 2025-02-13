@@ -3,10 +3,115 @@ import os
 from glob import glob
 import multiprocessing
 import logging
+
 import matplotlib.pyplot as plt
 import torch
+from sklearn.metrics import auc
 
 from util.rot_util import torch_quaternion_to_matrix, torch_matrix_to_axis_angle
+
+
+def compute_ROC_data(data_lst, metric_name):
+    sim_results = np.array([d["succ_flag"] for d in data_lst])
+    analytic_metrics = np.array([d[metric_name] for d in data_lst])
+
+    sort_index = np.argsort(analytic_metrics)
+    sim_results = sim_results[sort_index]
+    analytic_metrics = analytic_metrics[sort_index]
+
+    lens = len(sim_results)
+    spilt_num = 100
+    spilt_lens = lens // spilt_num
+    spilt_left = lens % spilt_num
+    steps = [0]
+    for i in range(spilt_left):
+        steps.append(steps[-1] + spilt_lens + 1)
+    for i in range(spilt_left, spilt_num):
+        steps.append(steps[-1] + spilt_lens)
+    assert steps[-1] == lens
+
+    tp, fp, tn, fn = (
+        np.zeros(spilt_num + 1),
+        np.zeros(spilt_num + 1),
+        np.zeros(spilt_num + 1),
+        np.zeros(spilt_num + 1),
+    )
+    tp[0], fp[0] = 0, 0
+    tn[0], fn[0] = np.sum(sim_results == 0), np.sum(sim_results == 1)
+    for i in range(spilt_num):
+        tp[i + 1] = tp[i] + np.sum(sim_results[steps[i] : steps[i + 1]] == 1)
+        fp[i + 1] = fp[i] + np.sum(sim_results[steps[i] : steps[i + 1]] == 0)
+        tn[i + 1] = tn[i] - np.sum(sim_results[steps[i] : steps[i + 1]] == 0)
+        fn[i + 1] = fn[i] - np.sum(sim_results[steps[i] : steps[i + 1]] == 1)
+    tpr, fpr = tp / (tp + fn), fp / (fp + tn)  # shape=(spilt_num+1,)
+    steps[-1] -= 1
+    threshold = analytic_metrics[steps]
+    return tpr, fpr, threshold
+
+
+def draw_ROC_curve(data_lst, save_path):
+    metric_name_lst = ["qp_metric", "qp_dfc_metric", "dfc_metric", "q1_metric"]
+    tpr_lst, fpr_lst, threshold_lst = [], [], []
+    for metric_name in metric_name_lst:
+        tpr, fpr, threshold = compute_ROC_data(data_lst, metric_name)
+        tpr_lst.append(tpr)
+        fpr_lst.append(fpr)
+        threshold_lst.append(threshold)
+
+    color_dict = {
+        "qp_metric": "red",
+        "qp_dfc_metric": "red",
+        "dfc_metric": "blue",
+        "tdg": "green",
+        "q1_metric": "cyan",
+    }
+    line_type_dict = {
+        "qp_metric": "-",
+        "qp_dfc_metric": "--",
+        "dfc_metric": "-",
+        "tdg": "-",
+        "q1_metric": "-",
+    }
+    name_dict = {
+        "qp_metric": "QP_ours",
+        "qp_dfc_metric": "QP_baseline",
+        "dfc_metric": "DFC",
+        "tdg": "TDG",
+        "q1_metric": "Q1",
+    }
+    plt.figure(figsize=(6, 6))
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("ROC Curve")
+    plt.rcParams["font.size"] = 15
+    plt.rcParams["lines.linewidth"] = 2
+    plt.plot([0, 1], [0, 1], color="black", label="Random", linestyle="--")
+
+    for i in range(len(metric_name_lst)):
+        tpr, fpr, threshold = tpr_lst[i], fpr_lst[i], threshold_lst[i]
+        distance = tpr - fpr
+        max_index = np.argmax(distance)
+        auc_score = auc(fpr, tpr)
+        plt.plot(
+            fpr,
+            tpr,
+            color=color_dict[metric_name_lst[i]],
+            label=name_dict[metric_name_lst[i]],
+            linestyle=line_type_dict[metric_name_lst[i]],
+        )
+        print(
+            "max distance is ",
+            distance[max_index],
+            "threshold is ",
+            threshold[max_index],
+            "type is ",
+            metric_name_lst[i],
+        )
+        print("tpr is ", tpr[max_index], "fpr is ", fpr[max_index])
+        print("auc is ", auc_score)
+    plt.legend()
+    plt.savefig(save_path, bbox_inches="tight", pad_inches=0.02)
+    return
 
 
 def draw_obj_scale_fig(data_lst, save_path):
@@ -100,6 +205,10 @@ def task_stat(configs):
     if configs.task.scale_fig:
         save_path = os.path.join(configs.log_dir, "objscale_distribution.png")
         draw_obj_scale_fig(data_lst, save_path)
+
+    if configs.task.roc_fig:
+        save_path = os.path.join(configs.log_dir, "analytic_metric_ROC.png")
+        draw_ROC_curve(data_lst, save_path)
 
     if configs.task.diversity:
         pca_eigenvalue = get_diversity(data_lst)

@@ -4,17 +4,19 @@ import pdb
 from copy import deepcopy
 
 import numpy as np
-import mujoco
 import imageio
+import mujoco
+import mujoco.viewer
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from util.rot_util import interplote_pose, interplote_qpos, np_get_delta_qpos
 from util.hand_util import HOMjSpec
 from util.file_util import load_json
+from task.fc_metric import *
 
 
-class BasicEval:
+class BaseEval:
     def __init__(self, input_npy_path, configs):
         self.input_npy_path = input_npy_path
         self.configs = configs
@@ -56,6 +58,7 @@ class BasicEval:
         return
 
     def _eval_pene_and_contact(self):
+        # Change contact margin
         for i in range(self.mj_model.ngeom):
             if "object_collision" in self.mj_model.geom(i).name:
                 self.mj_model.geom_margin[i] = self.mj_model.geom_gap[i] = (
@@ -217,18 +220,74 @@ class BasicEval:
         raise NotImplementedError
 
     def _eval_analytic_fc_metric(self):
+        # Change contact margin
+        for i in range(self.mj_model.ngeom):
+            if "object_collision" in self.mj_model.geom(i).name:
+                self.mj_model.geom_margin[i] = self.mj_model.geom_gap[i] = (
+                    self.configs.task.contact_threshold
+                )
+
         # Set to grasp pose
         mujoco.mj_resetDataKeyframe(self.mj_model, self.mj_data, self.mj_model.nkey - 1)
         mujoco.mj_forward(self.mj_model, self.mj_data)
 
-        return
+        contact_point_lst = []
+        contact_normal_lst = []
+        for jj, contact in enumerate(self.mj_data.contact):
+            body1_id = self.mj_model.geom(contact.geom1).bodyid
+            body2_id = self.mj_model.geom(contact.geom2).bodyid
+            body1_name = self.mj_model.body(
+                self.mj_model.geom(contact.geom1).bodyid
+            ).name
+            body2_name = self.mj_model.body(
+                self.mj_model.geom(contact.geom2).bodyid
+            ).name
+            total_body_num = self.mj_model.nbody
+            object_id = total_body_num - 1
+            hand_id = total_body_num - 2
+            if (body1_id < hand_id and body2_id == object_id) or (
+                body2_id < hand_id and body1_id == object_id
+            ):
+                body_name = (
+                    body1_name.removeprefix(self.hospec.hand_prefix)
+                    if body2_id == object_id
+                    else body2_name.removeprefix(self.hospec.hand_prefix)
+                )
+                if (
+                    np.abs(contact.dist) < self.configs.task.contact_threshold
+                    and body_name in self.configs.hand.valid_body_name
+                ):
+                    contact_point_lst.append(contact.pos)
+                    contact_normal_lst.append(contact.frame[0:3])
+
+        self.mj_model.geom_margin = 0
+        self.mj_model.geom_gap = 0
+
+        if len(contact_point_lst) == 0:
+            return 1, 1, 1, 1
+
+        contact_points = np.stack(contact_point_lst)
+        contact_normals = np.stack(contact_normal_lst)
+        qp_metric = calcu_qp_metric(
+            contact_points, contact_normals, self.configs.task.miu_coef
+        )
+        qp_dfc_metric = calcu_qp_dfc_metric(
+            contact_points, contact_normals, self.configs.task.miu_coef
+        )
+        q1_metric = calcu_q1_metric(
+            contact_points, contact_normals, self.configs.task.miu_coef
+        )
+        dfc_metric = calcu_dfc_metric(contact_points, contact_normals)
+        return qp_metric, qp_dfc_metric, dfc_metric, q1_metric
 
     def run(self):
         ho_pene, self_pene, contact_num, contact_dist, contact_consis = (
             self._eval_pene_and_contact()
         )
         succ_flag, delta_pos, delta_angle = self._eval_external_force()
-
+        qp_metric, qp_dfc_metric, dfc_metric, q1_metric = (
+            self._eval_analytic_fc_metric()
+        )
         # Save success data
         succ_npy_path = self.input_npy_path.replace(
             self.configs.grasp_dir, self.configs.succ_dir
@@ -254,6 +313,10 @@ class BasicEval:
                 "succ_flag": succ_flag,
                 "delta_pos": delta_pos,
                 "delta_angle": delta_angle,
+                "qp_metric": qp_metric,
+                "qp_dfc_metric": qp_dfc_metric,
+                "q1_metric": q1_metric,
+                "dfc_metric": dfc_metric,
             }
             for key in [
                 "grasp_pose",

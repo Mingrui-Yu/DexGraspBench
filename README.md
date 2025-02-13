@@ -31,6 +31,7 @@ pip install matplotlib
 pip install scikit-learn
 pip install usd-core
 pip install imageio
+pip install 'qpsolvers[clarabel]'
 ```
 
 ## Object Asset Preparation

@@ -1,18 +1,16 @@
 import os
 import sys
 import pdb
-from copy import deepcopy
 
 import numpy as np
 import mujoco
-import mujoco.viewer
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from util.rot_util import np_get_delta_qpos
-from task.eval_sim.basic import BasicEval
+from task.eval_sim.base import BaseEval
 
 
-class FCMocapEval(BasicEval):
+class FCMocapEval(BaseEval):
     def _eval_external_force_details(self, pre_obj_qpos):
         external_force_direction = np.array(
             [

@@ -8,6 +8,41 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from util.rot_util import np_normalize_vector, np_normal_to_rot
 
 
+def calcu_qp_dfc_metric(contact_pos, contact_normal, miu_coef):
+    graspqp = GraspQP(miu_coef)
+    _, wrench_error = graspqp.solve(
+        contact_pos,
+        contact_normal,
+        np.array([0.0, 0, 0, 0, 0, 0]),
+        contact_pos.mean(axis=0),
+    )
+    return wrench_error
+
+
+def calcu_qp_metric(contact_pos, contact_normal, miu_coef):
+    graspqp = GraspQP(miu_coef)
+    external_force_direction = np.array(
+        [
+            [-1.0, 0, 0, 0, 0, 0],
+            [1, 0, 0, 0, 0, 0],
+            [0, -1, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, -1, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0],
+        ]
+    )
+    qp_metric = 0
+    for ext_fd in external_force_direction:
+        _, wrench_error = graspqp.solve(
+            contact_pos,
+            contact_normal,
+            ext_fd * 0.3,
+            contact_pos.mean(axis=0),
+        )
+        qp_metric = max(wrench_error, qp_metric)
+    return qp_metric
+
+
 class GraspQP:
     def __init__(self, miu_coef, solver_type="clarabel"):
         self.miu_coef = miu_coef
@@ -47,15 +82,7 @@ class GraspQP:
 
         return G_matrix, h_matrix, E_matrix
 
-    def solve(
-        self,
-        pos,
-        normal,
-        gravity,
-        gravity_center,
-        retract_force=None,
-        retract_weight=1.0,
-    ):
+    def solve(self, pos, normal, gravity, gravity_center):
         """
         Parameters
         -------------------
@@ -63,8 +90,6 @@ class GraspQP:
         normal: np.array [n, 3]. Direction is from the object to hand
         gravity: np.array [6]
         gravity_center: np.array [6]
-        retract_force: np.array [n, 3]. The solved force part of contact_wrenches should be close to it.
-        retract_weight: float.
 
         Returns
         -------------------
@@ -77,8 +102,10 @@ class GraspQP:
 
         rot = np_normal_to_rot(normal)
         axis_0, axis_1, axis_2 = rot[..., 0], rot[..., 1], rot[..., 2]
-        # TODO: Do we need obb length to balance force and torque here?
+        # TODO: Do we need a scale to balance force and torque here?
         relative_pos = pos - gravity_center[None]
+        # relative_pos /= np.linalg.norm(relative_pos, axis=-1).mean(axis=0)
+
         grasp_matrix = np.zeros((self.num_contact, 6, 6))
         grasp_matrix[:, :3, 0] = grasp_matrix[:, 3:, 3] = axis_0
         grasp_matrix[:, :3, 1] = grasp_matrix[:, 3:, 4] = axis_1
@@ -92,23 +119,8 @@ class GraspQP:
         # [n, 6, 6] -> [6, n, 6] -> [6, 6n]
         flatten_param2force = np.transpose(param2force, (1, 0, 2)).reshape(6, -1)
 
-        if retract_force is None:
-            P_matrix = flatten_param2force.T @ flatten_param2force
-            q_matrix = gravity @ flatten_param2force
-        else:
-            semi_P_matrix = np.zeros((3 * self.num_contact + 6, 6 * self.num_contact))
-            for i in range(self.num_contact):
-                semi_P_matrix[3 * i : 3 * i + 3, 6 * i : 6 * i + 6] = (
-                    retract_weight
-                ) * param2force[i, :3, :]
-            semi_P_matrix[-6:, :] = flatten_param2force
-
-            q_part = np.concatenate(
-                [-retract_weight * retract_force.reshape(-1), gravity]
-            )
-
-            P_matrix = semi_P_matrix.T @ semi_P_matrix
-            q_matrix = q_part @ semi_P_matrix
+        P_matrix = flatten_param2force.T @ flatten_param2force
+        q_matrix = gravity @ flatten_param2force
 
         # Minimize_x 1/2*x^T @ P_matrix @ x + q_matrix^T @ x
         # Subject to G_matrix @ x <= h_matrix
@@ -119,7 +131,6 @@ class GraspQP:
             h=self.h_matrix,
             solver=self.solver_type,
         )
-        # print(solution)
         if solution is None:
             return None, 1.0
 
@@ -150,8 +161,6 @@ if __name__ == "__main__":
             normal,
             gravity,
             gravity_center,
-            # retract_force=old_contact_wrenches[:, :3],
-            # retract_weight=1.0,
         )
         print(contact_wrenches)
         print("error", wrench_error.mean())

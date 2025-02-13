@@ -7,5 +7,5 @@ max_pene: 0.01  # If the initial hand penetrates the object too much, regard it 
 trans_thre: 0.05
 angle_thre: 15
 
-obj_mass: 0.1   # unit: kg 
+obj_mass: 0.03   # unit: kg 
 miu_coef: [0.6, 0.02]
