@@ -50,7 +50,13 @@ def compute_ROC_data(data_lst, metric_name):
 
 
 def draw_ROC_curve(data_lst, save_path):
-    metric_name_lst = ["qp_metric", "qp_dfc_metric", "dfc_metric", "q1_metric"]
+    metric_name_lst = [
+        "qp_metric",
+        "qp_dfc_metric",
+        "q1_metric",
+        "tdg_metric",
+        "dfc_metric",
+    ]
     tpr_lst, fpr_lst, threshold_lst = [], [], []
     for metric_name in metric_name_lst:
         tpr, fpr, threshold = compute_ROC_data(data_lst, metric_name)
@@ -62,21 +68,21 @@ def draw_ROC_curve(data_lst, save_path):
         "qp_metric": "red",
         "qp_dfc_metric": "red",
         "dfc_metric": "blue",
-        "tdg": "green",
+        "tdg_metric": "green",
         "q1_metric": "cyan",
     }
     line_type_dict = {
         "qp_metric": "-",
         "qp_dfc_metric": "--",
         "dfc_metric": "-",
-        "tdg": "-",
+        "tdg_metric": "-",
         "q1_metric": "-",
     }
     name_dict = {
         "qp_metric": "QP_ours",
         "qp_dfc_metric": "QP_baseline",
         "dfc_metric": "DFC",
-        "tdg": "TDG",
+        "tdg_metric": "TDG",
         "q1_metric": "Q1",
     }
     plt.figure(figsize=(6, 6))
@@ -207,20 +213,28 @@ def task_stat(configs):
         draw_obj_scale_fig(data_lst, save_path)
 
     if configs.task.roc_fig:
-        save_path = os.path.join(configs.log_dir, "analytic_metric_ROC.png")
-        draw_ROC_curve(data_lst, save_path)
+        if "qp_metric" not in data_lst[0]:
+            logging.warning(
+                "Please set 'eval_analytic' and 'eval_simulate' to True while evaluation"
+            )
+        else:
+            save_path = os.path.join(configs.log_dir, "analytic_metric_ROC.png")
+            draw_ROC_curve(data_lst, save_path)
 
     if configs.task.diversity:
         pca_eigenvalue = get_diversity(data_lst)
         logging.info(f"Diversity: {pca_eigenvalue}")
 
-    average_penetration_depth = np.mean([d["ho_pene"] for d in data_lst])
-    logging.info(f"Penetration depth: {average_penetration_depth}")
-    average_self_penetration_depth = np.mean([d["self_pene"] for d in data_lst])
-    logging.info(f"Self-penetration depth: {average_self_penetration_depth}")
-    average_contact_distance = np.mean([d["contact_dist"] for d in data_lst])
-    logging.info(f"Contact distance: {average_contact_distance}")
-    average_contact_number = np.mean([d["contact_num"] for d in data_lst])
-    logging.info(f"Contact number: {average_contact_number}")
-    average_contact_consis = np.mean([d["contact_consis"] for d in data_lst])
-    logging.info(f"Contact consistency: {average_contact_consis}")
+    if "ho_pene" not in data_lst[0]:
+        logging.warning("Please set 'eval_dist' to True while evaluation")
+    else:
+        average_penetration_depth = np.mean([d["ho_pene"] for d in data_lst])
+        logging.info(f"Penetration depth: {average_penetration_depth}")
+        average_self_penetration_depth = np.mean([d["self_pene"] for d in data_lst])
+        logging.info(f"Self-penetration depth: {average_self_penetration_depth}")
+        average_contact_distance = np.mean([d["contact_dist"] for d in data_lst])
+        logging.info(f"Contact distance: {average_contact_distance}")
+        average_contact_number = np.mean([d["contact_num"] for d in data_lst])
+        logging.info(f"Contact number: {average_contact_number}")
+        average_contact_consis = np.mean([d["contact_consis"] for d in data_lst])
+        logging.info(f"Contact consistency: {average_contact_consis}")

@@ -7,11 +7,11 @@ import mujoco
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from util.rot_util import np_get_delta_qpos
-from task.eval_sim.base import BaseEval
+from task.eval_func.base import BaseEval
 
 
 class FCMocapEval(BaseEval):
-    def _eval_external_force_details(self, pre_obj_qpos):
+    def _simulate_under_extforce_details(self, pre_obj_qpos):
         external_force_direction = np.array(
             [
                 [-1.0, 0, 0, 0, 0, 0],
@@ -69,9 +69,9 @@ class FCMocapEval(BaseEval):
                 delta_pos, delta_angle = np_get_delta_qpos(
                     pre_obj_qpos, latter_obj_qpos
                 )
-                succ_flag = (delta_pos < self.configs.task.trans_thre) & (
-                    delta_angle < self.configs.task.angle_thre
-                )
+                succ_flag = (
+                    delta_pos < self.configs.task.simulation_metrics.trans_thre
+                ) & (delta_angle < self.configs.task.simulation_metrics.angle_thre)
                 if not succ_flag:
                     break
             if not succ_flag:

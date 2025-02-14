@@ -6,7 +6,7 @@ import traceback
 
 import numpy as np
 
-from .eval_sim import *
+from .eval_func import *
 
 
 def safe_eval_one(params):
@@ -21,6 +21,11 @@ def safe_eval_one(params):
 
 
 def task_eval(configs):
+    assert (
+        configs.task.simulation_metrics is not None
+        or configs.task.analytic_fc_metrics is not None
+        or configs.task.pene_contact_metrics is not None
+    ), "You should at least evaluate one kind of metrics"
     input_path_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
     init_num = len(input_path_lst)
 

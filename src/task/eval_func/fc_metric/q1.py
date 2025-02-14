@@ -5,9 +5,7 @@ from .base import build_grasp_matrix
 
 
 def calcu_q1_metric(contact_pos, contact_normal, miu_coef, num_friction_approx=8):
-    grasp_matrix = build_grasp_matrix(
-        contact_pos, contact_normal, contact_pos.mean(axis=0)
-    )
+    grasp_matrix = build_grasp_matrix(contact_pos, contact_normal)
     aranged_angles = (
         np.arange(num_friction_approx).astype(np.float32)
         * 2

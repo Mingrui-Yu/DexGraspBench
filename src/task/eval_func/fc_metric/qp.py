@@ -36,11 +36,11 @@ def calcu_qp_metric(contact_pos, contact_normal, miu_coef):
         _, wrench_error = graspqp.solve(
             contact_pos,
             contact_normal,
-            ext_fd * 0.3,
+            ext_fd * 0.1,
             contact_pos.mean(axis=0),
         )
-        qp_metric = max(wrench_error, qp_metric)
-    return qp_metric
+        qp_metric += wrench_error
+    return qp_metric / 6
 
 
 class GraspQP:

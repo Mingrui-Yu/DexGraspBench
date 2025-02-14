@@ -9,7 +9,7 @@ from .base import BaseEval
 
 
 class TableTopMocapEval(BaseEval):
-    def _eval_external_force_details(self, pre_obj_qpos):
+    def _simulate_under_extforce_details(self, pre_obj_qpos):
         # 1. Set object gravity
         external_force_direction = np.array([0.0, 0, -1, 0, 0, 0])
         self.mj_data.qfrc_applied[:] = 0.0
