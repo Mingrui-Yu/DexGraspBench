@@ -65,7 +65,7 @@ def task_vobj(configs):
     succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
     eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
     logging.info(
-        f"Find {len(grasp_lst)} grasp data, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
+        f"Find {len(grasp_lst)} grasp data in {configs.grasp_dir}, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )
 
     if configs.task.vis_type == "succ":
@@ -96,4 +96,6 @@ def task_vobj(configs):
         result_iter = pool.imap_unordered(_single_visd, iterable_params)
         results = list(result_iter)
 
+    logging.info(f"Finish visualization with OBJ")
+    
     return

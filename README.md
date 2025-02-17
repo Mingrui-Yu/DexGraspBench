@@ -23,7 +23,7 @@ Each grasping data point should include:
 ## Installation
 1. Clone the third-party library [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie).
 ```
-git submodule update --init --recursive 
+git submodule update --init --recursive --progress
 ```
 2. Install the python environment via [Anaconda](https://www.anaconda.com/). 
 ```
@@ -52,22 +52,22 @@ ln -s ${YOUR_SPLIT_PATH} assets/DGNObj_splits
 ``` -->
 
 ## Running
-0. (Optional) Download the object assets of DexGraspNet from [TODO]() and process with [MeshProcess](https://github.com/JYChen18/MeshProcess). Create soft link to `assets`.
+1. (Optional) Download the object assets of DexGraspNet from [TODO]() and process with [MeshProcess](https://github.com/JYChen18/MeshProcess). Create soft link to `assets`.
 ```
 ln -s ${YOUR_DATA_PATH} assets/DGNObj
 ```
 
-1. (Optional) Synthesize new grasp data with [BODex]() and convert to our supported format.
+2. (Optional) Synthesize new grasp data with [BODex]() and convert to our supported format. There are also some all-in-one scripts in `script` to test BODex's grasps.
 ```
-python src/main.py task=format task.data_path=${YOUR_PATH_TO_BODEX_OUTPUT}
-```
-
-2. Evaluate the synthesized grasps. Some examples are provided in `output/debug_shadow` for a quick start. 
-```
-python src/main.py task=eval 
+python src/main.py task=format task.data_path=${YOUR_PATH_TO_BODEX_OUTPUT} exp_name=debug hand=allegro
 ```
 
-3. Calculate statistics after evaluation.
+3. Evaluate the synthesized grasps. For a quick start, some example data is provided in the `output/example_shadow` directory. 
+```
+python src/main.py task=eval exp_name=example hand=shadow
+```
+
+4. Calculate statistics after evaluation.
 ```
 python src/main.py task=stat
 ```

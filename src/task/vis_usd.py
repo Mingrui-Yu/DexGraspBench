@@ -73,7 +73,7 @@ def task_vusd(configs):
     succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
     eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
     logging.info(
-        f"Find {len(grasp_lst)} grasp data, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
+        f"Find {len(grasp_lst)} grasp data in {configs.grasp_dir}, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )
 
     if configs.task.vis_type == "succ":
@@ -158,7 +158,7 @@ def task_vusd(configs):
     )
 
     # Add table
-    if "Tabletop" in configs.setting:
+    if configs.setting == "tabletop":
         transformation_matrix = np.eye(4)
         transformation_matrix[:3, 3] = [0.0, 0.0, -0.01]
         usd_helper.add_mesh_to_stage(
@@ -170,3 +170,4 @@ def task_vusd(configs):
 
     usd_helper.write_stage_to_file(save_path)
     logging.info(f"Save to {os.path.abspath(save_path)}")
+    logging.info(f"Finish visualization with USD")

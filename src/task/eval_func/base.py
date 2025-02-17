@@ -34,7 +34,7 @@ class BaseEval:
         self.mj_ho = MjHO(
             obj_path=self.grasp_data["obj_path"],
             obj_scale=self.grasp_data["obj_scale"],
-            has_floor_z0="Tabletop" in configs.setting,
+            has_floor_z0=configs.setting == "tabletop",
             obj_density=new_obj_density,
             hand_xml_path=configs.hand.xml_path,
             hand_mocap=configs.hand.mocap,
@@ -122,7 +122,7 @@ class BaseEval:
 
         # Record initial object pose
         pre_obj_qpos = deepcopy(self.mj_ho.get_obj_pose())
-        if "Tabletop" in self.configs.setting:
+        if self.configs.setting == "tabletop":
             pre_obj_qpos[2] += 0.1
 
         # Detailed simulation methods for testing

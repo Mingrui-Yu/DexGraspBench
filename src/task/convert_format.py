@@ -81,7 +81,7 @@ def task_format(configs):
         raw_data_path_lst = np.random.permutation(sorted(raw_data_path_lst))[
             : configs.task.max_num
         ]
-    logging.info(f"Find {raw_file_num} raw files, use {len(raw_data_path_lst)}")
+    logging.info(f"Find {raw_file_num} raw files for {os.path.join(configs.task.data_path, *raw_data_struct)}, use {len(raw_data_path_lst)}")
 
     if len(raw_data_path_lst) == 0:
         return
