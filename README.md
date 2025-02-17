@@ -1,15 +1,23 @@
 # DexGraspBench
 
-A simulation benchmark in [MuJoCo](https://github.com/google-deepmind/mujoco/) for dexterous grasping, proposed in *BODex: Scalable and Efficient Robotic Dexterous Grasp Synthesis Using Bilevel Optimization [ICRA 2025]*.
+A standard and unified simulation benchmark in [MuJoCo](https://github.com/google-deepmind/mujoco/) for dexterous grasping, aimed at **enabling a fair comparison across different grasp synthesis methods**, proposed in *BODex: Scalable and Efficient Robotic Dexterous Grasp Synthesis Using Bilevel Optimization [ICRA 2025]*.
 
 [Project page](https://pku-epic.github.io/BODex/) ｜ [Paper](https://arxiv.org/abs/2412.16490)
 
+## Main Usage
+Replay and test **open-loop** grasping poses/trajectories in parallel.
+
+Each grasping data point should include:
+- Object (pre-processed by [MeshProcess](https://github.com/JYChen18/MeshProcess)): `obj_scale`, `obj_pose`, `obj_path`.
+- Hand: `approach_qpos` (optional), `pregrasp_qpos`, `grasp_qpos`, `squeeze_qpos`.
+
+
 ## Highlight
 
-1. **Reproducibility and high-quality physics simulation**, powered by [MuJoCo](https://github.com/google-deepmind/mujoco/).
-2. **Comprehensive metrics**, including simulation success rate, analytic grasp quality metrics, penetration depth, contact quality, and data diversity, etc.
-3. **Support for multiple settings**, including different hands (Allegro, Shadow, Leap), data formats (motion sequences, static poses), and scenarios (force-closure, tabletop).
-5. **Benchmarking diverse methods**, including optimization-based grasp synthesis methods (e.g., [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release), and [BODex](https://pku-epic.github.io/BODex/)) and data-driven baselines (e.g., CVAE, Diffusion Model, and Normalizing Flow).
+1. **Reproducible and high-quality physics simulation**, powered by [MuJoCo](https://github.com/google-deepmind/mujoco/).
+2. **Comprehensive metrics**, including simulation success rate, analytic force closure metrics, penetration depth, contact quality, and data diversity, etc.
+3. **Diverse settings**, including different robotic hands (Allegro, Shadow, Leap, UR10e+Shadow), data formats (motion sequences, static poses), and scenarios (tabletop lifting, force-closure testing).
+4. **Multiple baselines**, including optimization-based grasp synthesis methods (e.g., [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release), and [BODex](https://pku-epic.github.io/BODex/)) and data-driven baselines (e.g., CVAE, Diffusion Model, and Normalizing Flow).
 
 
 ## Installation
@@ -33,7 +41,7 @@ pip install usd-core
 pip install imageio
 pip install 'qpsolvers[clarabel]'
 ```
-
+<!-- 
 ## Object Asset Preparation
 1. Download the object assets of DexGraspNet from [TODO]().
 2. Process the objects using [MeshProcess](https://github.com/JYChen18/MeshProcess).
@@ -41,15 +49,20 @@ pip install 'qpsolvers[clarabel]'
 ```
 ln -s ${YOUR_DATA_PATH} assets/DGNObj
 ln -s ${YOUR_SPLIT_PATH} assets/DGNObj_splits
-```
+``` -->
 
 ## Running
-1. Synthesize the grasp data with [TODO]() and create a soft link.
+0. (Optional) Download the object assets of DexGraspNet from [TODO]() and process with [MeshProcess](https://github.com/JYChen18/MeshProcess). Create soft link to `assets`.
 ```
-ln -s ${YOUR_GRASPDATA_PATH} output/debug_shadow/graspdata
+ln -s ${YOUR_DATA_PATH} assets/DGNObj
 ```
 
-2. Evaluate the synthesized grasp.   
+1. (Optional) Synthesize new grasp data with [BODex]() and convert to our supported format.
+```
+python src/main.py task=format task.data_path=${YOUR_PATH_TO_BODEX_OUTPUT}
+```
+
+2. Evaluate the synthesized grasps. Some examples are provided in `output/debug_shadow` for a quick start. 
 ```
 python src/main.py task=eval 
 ```
@@ -69,6 +82,18 @@ The other method is to save OBJ files.
 python src/main.py task=vobj
 ```
 
+## Setting Changes
+The `main` branch serves as our standard benchmark, with some adjustments to the settings compared to the [BODex](https://arxiv.org/abs/2412.16490) paper, aimed at improving the practicality. Key changes include increasing the object mass from 30g to 100g, raising the hand's kp from 1 to 5, and supporting more diverse object assets.
+
+The original benchmark version is available in the `original` branch. This branch also includes code to test other grasp synthesis baselines, such as [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release).
+
+
+## Future Plans
+1. Incorporate visual/tactile feedback to support **close-loop** evaluation.
+2. Add support for other physics simulators, such as [MJX](https://mujoco.readthedocs.io/en/stable/mjx.html) and the [IPC-based simulator](https://dl.acm.org/doi/10.1145/3528223.3530064).
+
+Contributions are welcome, and feel free to connect with me via [email](mailto:jiayichen@pku.edu/cn).
+
 
 ## Citation
 If you find this project useful, please consider citing:
@@ -80,12 +105,3 @@ If you find this project useful, please consider citing:
   year={2024}
 }
 ```
-
-
-## LICENSE
-This work are licensed under [CC BY-NC 4.0][cc-by-nc].
-
-[![CC BY-NC 4.0][cc-by-nc-image]][cc-by-nc]
-
-[cc-by-nc]: https://creativecommons.org/licenses/by-nc/4.0/
-[cc-by-nc-image]: https://licensebuttons.net/l/by-nc/4.0/88x31.png

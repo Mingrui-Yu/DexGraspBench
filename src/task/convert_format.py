@@ -48,11 +48,10 @@ def BODex(params):
 
     for i in range(len(robot_pose)):
         if configs.hand.mocap:
-            new_data["init_qpos"] = new_data["pregrasp_qpos"] = robot_pose[i, 0]
+            new_data["pregrasp_qpos"] = robot_pose[i, 0]
             new_data["grasp_qpos"] = robot_pose[i, 1]
             new_data["squeeze_qpos"] = robot_pose[i, 2]
         else:
-            new_data["init_qpos"] = robot_pose[i, 0]
             new_data["approach_qpos"] = robot_pose[i, :-4]
             new_data["pregrasp_qpos"] = robot_pose[i, -4]
             new_data["grasp_qpos"] = robot_pose[i, -3]

@@ -105,16 +105,14 @@ def draw_ROC_curve(data_lst, save_path):
             label=name_dict[metric_name_lst[i]],
             linestyle=line_type_dict[metric_name_lst[i]],
         )
-        print(
-            "max distance is ",
-            distance[max_index],
-            "threshold is ",
-            threshold[max_index],
-            "type is ",
-            metric_name_lst[i],
-        )
-        print("tpr is ", tpr[max_index], "fpr is ", fpr[max_index])
-        print("auc is ", auc_score)
+        # print(
+        #     "max distance is ",
+        #     distance[max_index],
+        #     "threshold is ",
+        #     threshold[max_index],
+        # )
+        # print("tpr is ", tpr[max_index], "fpr is ", fpr[max_index])
+        logging.info(f"AUC of {metric_name_lst[i]}: {auc_score}")
     plt.legend()
     plt.savefig(save_path, bbox_inches="tight", pad_inches=0.02)
     return
