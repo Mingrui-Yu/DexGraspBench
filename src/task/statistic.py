@@ -51,11 +51,11 @@ def compute_ROC_data(data_lst, metric_name):
 
 def draw_ROC_curve(data_lst, save_path):
     metric_name_lst = [
-        "qp_metric",
-        "qp_dfc_metric",
-        "q1_metric",
-        "tdg_metric",
         "dfc_metric",
+        "tdg_metric",
+        "q1_metric",
+        "qp_dfc_metric",
+        "qp_metric",
     ]
     tpr_lst, fpr_lst, threshold_lst = [], [], []
     for metric_name in metric_name_lst:
@@ -80,17 +80,17 @@ def draw_ROC_curve(data_lst, save_path):
     }
     name_dict = {
         "qp_metric": "QP_ours",
-        "qp_dfc_metric": "QP_baseline",
+        "qp_dfc_metric": "QP_base",
         "dfc_metric": "DFC",
         "tdg_metric": "TDG",
         "q1_metric": "Q1",
     }
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=(6, 6), dpi=600)
+    plt.rcParams["font.size"] = 20
+    plt.rcParams["lines.linewidth"] = 2
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.rcParams["font.size"] = 15
-    plt.rcParams["lines.linewidth"] = 2
+    plt.title("Energy as Metric (ROC)")
     plt.plot([0, 1], [0, 1], color="black", label="Random", linestyle="--")
 
     for i in range(len(metric_name_lst)):
@@ -113,7 +113,7 @@ def draw_ROC_curve(data_lst, save_path):
         # )
         # print("tpr is ", tpr[max_index], "fpr is ", fpr[max_index])
         logging.info(f"AUC of {metric_name_lst[i]}: {auc_score}")
-    plt.legend()
+    plt.legend(fontsize=15)
     plt.savefig(save_path, bbox_inches="tight", pad_inches=0.02)
     return
 
@@ -236,6 +236,5 @@ def task_stat(configs):
         logging.info(f"Contact number: {average_contact_number}")
         average_contact_consis = np.mean([d["contact_consis"] for d in data_lst])
         logging.info(f"Contact consistency: {average_contact_consis}")
-    
+
     logging.info(f"Finish statistics")
-    

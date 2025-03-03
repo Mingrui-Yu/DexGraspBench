@@ -79,12 +79,34 @@ def BODex(params):
     return
 
 
+def batched(params):
+    data_file, configs = params[0], params[1]
+    raw_data = np.load(data_file, allow_pickle=True).item()
+    new_data = {}
+    new_data["obj_pose"] = raw_data["obj_pose"]
+    new_data["obj_scale"] = raw_data["obj_scale"]
+    new_data["obj_path"] = raw_data["obj_path"]
+    for i in range(len(raw_data["grasp_qpos"])):
+
+        new_data["pregrasp_qpos"] = raw_data["pregrasp_qpos"][i]
+        new_data["grasp_qpos"] = raw_data["grasp_qpos"][i]
+        new_data["squeeze_qpos"] = raw_data["squeeze_qpos"][i]
+        save_path = data_file.replace(
+            configs.task.data_path, configs.grasp_dir
+        ).replace(".npy", f"/{i}.npy")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        np.save(save_path, new_data)
+    return
+
+
 def task_format(configs):
     if configs.task.data_name == "BODex":
         if configs.hand.mocap:
             raw_data_struct = ["**", "**_grasp.npy"]
         else:
             raw_data_struct = ["**", "**_mogen.npy"]
+    elif configs.task.data_name == "batched":
+        raw_data_struct = ["**", "**.npy"]
     else:
         raise NotImplementedError
     raw_data_path_lst = glob(os.path.join(configs.task.data_path, *raw_data_struct))

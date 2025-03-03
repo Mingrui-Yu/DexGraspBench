@@ -8,6 +8,7 @@ save_dir: ${save_root}/${exp_name}_${hand_name}
 grasp_dir: ${save_dir}/graspdata
 eval_dir: ${save_dir}/evaluation
 succ_dir: ${save_dir}/succgrasp
+collect_dir: ${save_dir}/succ_collect
 vusd_dir: ${save_dir}/vis_usd
 vobj_dir: ${save_dir}/vis_obj
 data_struct: 
