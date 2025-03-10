@@ -2,7 +2,7 @@
 
 A standard and unified simulation benchmark in [MuJoCo](https://github.com/google-deepmind/mujoco/) for dexterous grasping, aimed at **enabling a fair comparison across different grasp synthesis methods**, proposed in *BODex: Scalable and Efficient Robotic Dexterous Grasp Synthesis Using Bilevel Optimization [ICRA 2025]*.
 
-[Project page](https://pku-epic.github.io/BODex/) ｜ [Paper](https://arxiv.org/abs/2412.16490)
+[Project page](https://pku-epic.github.io/BODex/) ｜ [Paper](https://arxiv.org/abs/2412.16490) | [Grasp synthesis code](https://github.com/JYChen18/BODex)
 
 ## Introduction
 
@@ -50,9 +50,15 @@ pip install 'qpsolvers[clarabel]'
 ```
 
 ### Running
-1. (Optional) Clone [MeshProcess](https://github.com/JYChen18/MeshProcess) and download the object assets according to the [guides](https://github.com/JYChen18/MeshProcess/tree/main/src/dataset#dexgraspnet). Create a soft link to the `assets` directory.
+1. (Optional) Download our pre-processed object assets `DGN_obj_processed.zip` and `DGN_obj_split.zip` from [here](https://huggingface.co/datasets/JiayiChenPKU/BODex) and organize the unzipped folders as below. Alternatively, new object assets can be pre-processed using [MeshProcess](https://github.com/JYChen18/MeshProcess).
 ```
-ln -s ${YOUR_PATH}/MeshProcess/assets/object assets/object
+assets/object/DGN_obj
+|- processed_data
+|  |- core_bottle_1a7ba1f4c892e2da30711cdbdbc73924
+|  |_ ...
+|- valid_split
+|  |- all.json
+|  |_ ...
 ```
 
 2. (Optional) Synthesize new grasp data with [BODex](https://github.com/JYChen18/BODex) and convert to our supported format. There are also some all-in-one scripts in the `script` directory to test BODex's grasps.
@@ -81,7 +87,7 @@ python src/main.py task=vobj
 ```
 
 ## Changelog
-The `main` branch serves as our standard benchmark, with some adjustments to the settings compared to the [BODex](https://arxiv.org/abs/2412.16490) paper, aimed at improving the practicality. Key changes include increasing the object mass from 30g to 100g, raising the hand's kp from 1 to 5, and supporting more diverse object assets. One can futher reduce friction coefficients `miu_coef` (currently 0.6 for tangential and 0.02 for torsional) to increase difficulty.
+The `main` branch serves as our standard benchmark, with some adjustments to the settings compared to the [BODex](https://arxiv.org/abs/2412.16490) paper, aimed at improving the practicality. Key changes include increasing the object mass from 30g to 100g, raising the hand's kp from 1 to 5, and supporting more diverse object assets. One can further reduce friction coefficients `miu_coef` (currently 0.6 for tangential and 0.02 for torsional) to increase difficulty.
 
 The original benchmark version is available in the `baseline` branch. This branch also includes code to test other grasp synthesis baselines, such as [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release).
 
@@ -90,7 +96,7 @@ The original benchmark version is available in the `baseline` branch. This branc
 - Incorporate visual/tactile feedback to support **close-loop** evaluation.
 - Add support for other physics simulators, such as [MJX](https://mujoco.readthedocs.io/en/stable/mjx.html) and the [IPC-based simulator](https://dl.acm.org/doi/10.1145/3528223.3530064).
 
-The detailed updating timeline is unsure. 
+The detailed updating timeline is unclear. 
 
 
 ## Citation
