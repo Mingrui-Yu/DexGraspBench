@@ -38,7 +38,7 @@ conda create -n DGBench python=3.10
 conda activate DGBench
 pip install numpy==1.26.4
 conda install pytorch==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia 
-pip install mujoco
+pip install mujoco==3.2.7
 pip install trimesh
 pip install hydra-core
 pip install transforms3d
