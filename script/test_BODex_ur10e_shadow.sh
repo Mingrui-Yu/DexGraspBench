@@ -4,3 +4,4 @@ python src/main.py setting=tabletop hand=ur10e_shadow task=eval exp_name=debug t
 python src/main.py setting=tabletop hand=ur10e_shadow task=stat exp_name=debug
 python src/main.py setting=tabletop hand=ur10e_shadow task=vusd exp_name=debug task.max_num=10
 python src/main.py setting=tabletop hand=ur10e_shadow task=vobj exp_name=debug task.max_num=10
+python src/main.py setting=tabletop hand=ur10e_shadow task=collect exp_name=debug

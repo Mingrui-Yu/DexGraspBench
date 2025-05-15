@@ -4,3 +4,4 @@ python src/main.py hand=allegro task=eval exp_name=debug task.max_num=1000
 python src/main.py hand=allegro task=stat exp_name=debug
 python src/main.py hand=allegro task=vusd exp_name=debug task.max_num=10
 python src/main.py hand=allegro task=vobj exp_name=debug task.max_num=10
+python src/main.py hand=allegro task=collect exp_name=debug

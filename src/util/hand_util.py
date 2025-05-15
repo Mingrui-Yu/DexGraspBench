@@ -1,8 +1,6 @@
 import os
 import pdb
 
-os.environ["MUJOCO_GL"] = "osmesa"
-
 import trimesh
 import numpy as np
 import mujoco
@@ -35,7 +33,6 @@ class MjHO:
         self.spec.option.timestep = 0.004
         self.spec.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
         self.spec.option.disableflags = mujoco.mjtDisableBit.mjDSBL_GRAVITY
-        self.spec.option.enableflags = mujoco.mjtEnableBit.mjENBL_NATIVECCD
         if debug_render or debug_viewer:
             self.spec.add_texture(
                 type=mujoco.mjtTexture.mjTEXTURE_SKYBOX,

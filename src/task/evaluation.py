@@ -30,11 +30,13 @@ def task_eval(configs):
         or configs.task.analytic_fc_metrics is not None
         or configs.task.pene_contact_metrics is not None
     ), "You should at least evaluate one kind of metrics"
-    input_path_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
+    input_path_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
     init_num = len(input_path_lst)
 
     if configs.skip:
-        eval_path_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
+        eval_path_lst = glob(
+            os.path.join(configs.eval_dir, "**/**.npy"), recursive=True
+        )
         eval_path_lst = [
             p.replace(configs.eval_dir, configs.grasp_dir) for p in eval_path_lst
         ]
@@ -60,9 +62,9 @@ def task_eval(configs):
             result_iter = pool.imap_unordered(safe_eval_one, iterable_params)
             results = list(result_iter)
 
-    grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
-    succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
-    eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
+    succ_lst = glob(os.path.join(configs.succ_dir, "**/**.npy"), recursive=True)
+    eval_lst = glob(os.path.join(configs.eval_dir, "**/**.npy"), recursive=True)
     logging.info(
         f"Get {len(grasp_lst)} grasp data, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )

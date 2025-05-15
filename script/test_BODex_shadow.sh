@@ -4,3 +4,4 @@ python src/main.py task=eval exp_name=debug task.max_num=1000
 python src/main.py task=stat exp_name=debug
 python src/main.py task=vusd exp_name=debug task.max_num=10
 python src/main.py task=vobj exp_name=debug task.max_num=10
+python src/main.py task=collect exp_name=debug

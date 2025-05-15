@@ -10,19 +10,38 @@ import torch
 from util.rot_util import torch_quaternion_to_matrix, torch_matrix_to_quaternion
 
 
+def load_scene_cfg(scene_path):
+    scene_cfg = np.load(scene_path, allow_pickle=True).item()
+
+    def update_relative_path(d: dict):
+        for k, v in d.items():
+            if isinstance(v, dict):
+                update_relative_path(v)
+            elif k.endswith("_path") and isinstance(v, str):
+                d[k] = os.path.join(os.path.dirname(scene_path), v)
+        return
+
+    update_relative_path(scene_cfg["scene"])
+
+    return scene_cfg
+
+
 def BODex(params):
     data_file, configs = params[0], params[1]
 
     raw_data = np.load(data_file, allow_pickle=True).item()
     robot_pose = raw_data["robot_pose"][0]
     new_data = {}
-    new_data["obj_pose"] = raw_data["obj_pose"][0]
-    new_data["obj_scale"] = raw_data["obj_scale"][0]
-    new_data["obj_path"] = "assets/object" + (
-        raw_data["obj_path"][0]
-        .split("/mesh/simplified.obj")[0]
-        .split("assets/object")[1]
+
+    scene_path = raw_data["scene_path"][0].split("src/curobo/content/")[1]
+    scene_cfg = load_scene_cfg(scene_path)
+    obj_name = scene_cfg["task"]["obj_name"]
+    new_data["obj_scale"] = scene_cfg["scene"][obj_name]["scale"][0]
+    new_data["obj_pose"] = scene_cfg["scene"][obj_name]["pose"]
+    new_data["obj_path"] = os.path.dirname(
+        os.path.dirname(scene_cfg["scene"][obj_name]["file_path"])
     )
+    new_data["scene_path"] = scene_path
 
     if configs.hand_name == "shadow":
         # Change qpos order of thumb
@@ -71,31 +90,31 @@ def BODex(params):
             new_data["lift_qpos"] = robot_pose[i, -1]
         save_path = (
             data_file.replace(configs.task.data_path, configs.grasp_dir)
-            .replace("_grasp.npy", f"/{i}.npy")
-            .replace("_mogen.npy", f"/{i}.npy")
+            .replace("_grasp.npy", f"/{i}_grasp.npy")
+            .replace("_mogen.npy", f"/{i}_mogen.npy")
         )
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         np.save(save_path, new_data)
     return
 
 
-def batched(params):
+def Learning(params):
     data_file, configs = params[0], params[1]
     raw_data = np.load(data_file, allow_pickle=True).item()
+    scene_cfg = load_scene_cfg(raw_data["scene_path"])
+    target_obj = scene_cfg["task"]["obj_name"]
     new_data = {}
-    new_data["obj_pose"] = raw_data["obj_pose"]
-    new_data["obj_scale"] = raw_data["obj_scale"]
-    new_data["obj_path"] = raw_data["obj_path"]
-    for i in range(len(raw_data["grasp_qpos"])):
-
-        new_data["pregrasp_qpos"] = raw_data["pregrasp_qpos"][i]
-        new_data["grasp_qpos"] = raw_data["grasp_qpos"][i]
-        new_data["squeeze_qpos"] = raw_data["squeeze_qpos"][i]
-        save_path = data_file.replace(
-            configs.task.data_path, configs.grasp_dir
-        ).replace(".npy", f"/{i}.npy")
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        np.save(save_path, new_data)
+    new_data["obj_path"] = os.path.dirname(
+        os.path.dirname(scene_cfg["scene"][target_obj]["file_path"])
+    )
+    new_data["obj_pose"] = scene_cfg["scene"][target_obj]["pose"]
+    new_data["obj_scale"] = scene_cfg["scene"][target_obj]["scale"][0]
+    save_path = data_file.replace(configs.task.data_path, configs.grasp_dir)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    new_data["grasp_qpos"] = raw_data["grasp_qpos"]
+    new_data["pregrasp_qpos"] = raw_data["pregrasp_qpos"]
+    new_data["squeeze_qpos"] = raw_data["squeeze_qpos"]
+    np.save(save_path, new_data)
     return
 
 
@@ -105,11 +124,11 @@ def task_format(configs):
             raw_data_struct = ["**", "**_grasp.npy"]
         else:
             raw_data_struct = ["**", "**_mogen.npy"]
-    elif configs.task.data_name == "batched":
-        raw_data_struct = ["**", "**.npy"]
     else:
-        raise NotImplementedError
-    raw_data_path_lst = glob(os.path.join(configs.task.data_path, *raw_data_struct))
+        raw_data_struct = ["**", "**.npy"]
+    raw_data_path_lst = glob(
+        os.path.join(configs.task.data_path, *raw_data_struct), recursive=True
+    )
     raw_file_num = len(raw_data_path_lst)
     if configs.task.max_num > 0:
         raw_data_path_lst = np.random.permutation(sorted(raw_data_path_lst))[
@@ -127,7 +146,7 @@ def task_format(configs):
         result_iter = pool.imap_unordered(eval(configs.task.data_name), iterable_params)
         results = list(result_iter)
 
-    grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
     logging.info(f"Get {len(grasp_lst)} grasp data in {configs.save_dir}")
     logging.info(f"Finish format conversion")
     return

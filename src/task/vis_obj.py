@@ -45,7 +45,7 @@ def _single_visd(params):
             visual_mesh.export(f"{out_path}_{data_name}_{i}.obj")
 
     # Visualize object
-    obj_path = os.path.join(grasp_data["obj_path"], "mesh/coacd.obj")
+    obj_path = os.path.join(grasp_data["obj_path"], "mesh/simplified.obj")
     obj_tm = trimesh.load(obj_path, force="mesh")
     obj_tm.vertices *= grasp_data["obj_scale"]
     rotation_matrix = trimesh.transformations.quaternion_matrix(
@@ -61,9 +61,9 @@ def _single_visd(params):
 
 
 def task_vobj(configs):
-    grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
-    succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
-    eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
+    succ_lst = glob(os.path.join(configs.succ_dir, "**/**.npy"), recursive=True)
+    eval_lst = glob(os.path.join(configs.eval_dir, "**/**.npy"), recursive=True)
     logging.info(
         f"Find {len(grasp_lst)} grasp data in {configs.grasp_dir}, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )
@@ -97,5 +97,5 @@ def task_vobj(configs):
         results = list(result_iter)
 
     logging.info(f"Finish visualization with OBJ")
-    
+
     return

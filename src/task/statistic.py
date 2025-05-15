@@ -184,9 +184,9 @@ def get_diversity(data_lst):
 
 
 def task_stat(configs):
-    grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
-    succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
-    eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
+    succ_lst = glob(os.path.join(configs.succ_dir, "**/**.npy"), recursive=True)
+    eval_lst = glob(os.path.join(configs.eval_dir, "**/**.npy"), recursive=True)
     logging.info(
         f"Find {len(grasp_lst)} grasp data in {configs.grasp_dir}, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )
@@ -195,8 +195,24 @@ def task_stat(configs):
     logging.info(f"Grasp success rate: {len(succ_lst)/len(eval_lst)}")
 
     # Object success rate
-    obj_eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct[:-1])))
-    obj_succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct[:-1])))
+    obj_eval_lst = set(
+        [
+            os.path.dirname(f)
+            for f in glob(
+                os.path.join(configs.eval_dir, "**/**.npy"),
+                recursive=True,
+            )
+        ]
+    )
+    obj_succ_lst = set(
+        [
+            os.path.dirname(f)
+            for f in glob(
+                os.path.join(configs.succ_dir, "**/**.npy"),
+                recursive=True,
+            )
+        ]
+    )
     logging.info(f"Object success rate: {len(obj_succ_lst)/len(obj_eval_lst)}")
 
     if len(eval_lst) == 0:

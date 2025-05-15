@@ -44,9 +44,9 @@ def read_npy(params):
 
     obj_path = grasp_data["obj_path"]
     if not obj_path.endswith(".obj"):
-        obj_path = os.path.join(grasp_data["obj_path"], "mesh/coacd.obj")
+        obj_path = os.path.join(grasp_data["obj_path"], "mesh/simplified.obj")
     if not os.path.exists(obj_path):
-        raise NotImplementedError
+        raise NotImplementedError(obj_path)
     return {
         "obj_path": obj_path,
         "obj_pose_scale": np.stack(obj_pose_lst, axis=0),
@@ -69,9 +69,9 @@ def task_vusd(configs):
     init_robot_name_lst, init_robot_mesh_lst = hand_fk.get_init_meshes()
     save_path = os.path.join(configs.vusd_dir, "grasp.usd")
 
-    grasp_lst = glob(os.path.join(configs.grasp_dir, *list(configs.data_struct)))
-    succ_lst = glob(os.path.join(configs.succ_dir, *list(configs.data_struct)))
-    eval_lst = glob(os.path.join(configs.eval_dir, *list(configs.data_struct)))
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
+    succ_lst = glob(os.path.join(configs.succ_dir, "**/**.npy"), recursive=True)
+    eval_lst = glob(os.path.join(configs.eval_dir, "**/**.npy"), recursive=True)
     logging.info(
         f"Find {len(grasp_lst)} grasp data in {configs.grasp_dir}, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )
