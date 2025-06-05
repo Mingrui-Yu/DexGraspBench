@@ -44,8 +44,8 @@ pip install imageio
 pip install 'qpsolvers[clarabel]'
 ```
 
-### Object Preparation
-Download our pre-processed object assets `DGN_2k_processed.zip` from [Hugging Face](https://huggingface.co/datasets/JiayiChenPKU/BODex) and organize the unzipped folders as below. 
+### (Optional) Object Preparation
+If you need the object assets used in [BODex](https://pku-epic.github.io/BODex/), please download our pre-processed object assets `DGN_2k_processed.zip` from [here](https://huggingface.co/datasets/JiayiChenPKU/BODex) and organize the unzipped folders as below. 
 ```
 assets/object/DGN_2k
 |- processed_data
@@ -58,9 +58,11 @@ assets/object/DGN_2k
 |  |- all.json
 |  |_ ...
 ```
-It is similar for `DGN_5k` and `objaverse_5k` for [Dexonomy](https://pku-epic.github.io/Dexonomy/)
+If you need the object assets used in [Dexonomy](https://pku-epic.github.io/Dexonomy/), please download and organize `DGN_5k` and `objaverse_5k` from [here](https://huggingface.co/datasets/JiayiChenPKU/Dexonomy).
 
 ### Running
+
+We have provided several scripts, which optionally includes format conversion, evaluation, statistic calculation, and visualization with [OpenUSD](https://github.com/PixarAnimationStudios/OpenUSD) or OBJ files.
 
 For a quick start, some example data is provided in the `output/example_shadow` directory, which can be directly evaluated by
 ```bash
@@ -77,14 +79,9 @@ To evaluate the synthesized grasps of [DexLearn](https://github.com/JYChen18/Dex
 bash script/test_learning_shadow.sh
 ```
 
-### Visualization
-We provide two methods to visualize the synthesized grasps. The first method is through [OpenUSD](https://github.com/PixarAnimationStudios/OpenUSD). 
-```
-python src/main.py task=vusd
-```
-The other method is to save OBJ files.
-```
-python src/main.py task=vobj
+To visualize the synthesized grasps of [Dexonomy](https://github.com/JYChen18/Dexonomy),
+```bash
+bash script/vis_Dexonomy.sh
 ```
 
 ## Changelog
