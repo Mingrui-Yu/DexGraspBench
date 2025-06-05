@@ -69,9 +69,9 @@ def task_vusd(configs):
     init_robot_name_lst, init_robot_mesh_lst = hand_fk.get_init_meshes()
     save_path = os.path.join(configs.vusd_dir, "grasp.usd")
 
-    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
-    succ_lst = glob(os.path.join(configs.succ_dir, "**/**.npy"), recursive=True)
-    eval_lst = glob(os.path.join(configs.eval_dir, "**/**.npy"), recursive=True)
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/*.npy"), recursive=True)
+    succ_lst = glob(os.path.join(configs.succ_dir, "**/*.npy"), recursive=True)
+    eval_lst = glob(os.path.join(configs.eval_dir, "**/*.npy"), recursive=True)
     logging.info(
         f"Find {len(grasp_lst)} grasp data in {configs.grasp_dir}, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )

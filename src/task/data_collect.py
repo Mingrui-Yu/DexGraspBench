@@ -31,7 +31,7 @@ def many_to_one(params):
 
 
 def task_collect(configs):
-    succ_path_lst = glob(os.path.join(configs.succ_dir, "**/**.npy"), recursive=True)
+    succ_path_lst = glob(os.path.join(configs.succ_dir, "**/*.npy"), recursive=True)
     succ_folder_lst = list(set([os.path.dirname(p) for p in succ_path_lst]))
     logging.info(
         f"Get {len(succ_path_lst)} success data and {len(succ_folder_lst)} folder."

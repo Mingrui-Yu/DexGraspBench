@@ -118,14 +118,37 @@ def Learning(params):
     return
 
 
+def Batched(params):
+    data_file, configs = params[0], params[1]
+    raw_data = np.load(data_file, allow_pickle=True).item()
+    scene_cfg = load_scene_cfg(raw_data["scene_path"])
+    target_obj = scene_cfg["task"]["obj_name"]
+    new_data = {}
+    new_data["obj_path"] = os.path.dirname(
+        os.path.dirname(scene_cfg["scene"][target_obj]["file_path"])
+    )
+    new_data["obj_pose"] = scene_cfg["scene"][target_obj]["pose"]
+    obj_scale_in_scene = scene_cfg["scene"][target_obj]["scale"][0]
+    save_path = data_file.replace(configs.task.data_path, configs.grasp_dir)
+    for i in range(raw_data["grasp_qpos"].shape[0]):
+        save_path = os.path.join(save_path.split(".npy")[0], f"{i}.npy")
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        new_data["obj_scale"] = obj_scale_in_scene * raw_data["scene_scale"][i]
+        new_data["grasp_qpos"] = raw_data["grasp_qpos"][i]
+        new_data["pregrasp_qpos"] = raw_data["pregrasp_qpos"][i]
+        new_data["squeeze_qpos"] = raw_data["squeeze_qpos"][i]
+        np.save(save_path, new_data)
+    return
+
+
 def task_format(configs):
     if configs.task.data_name == "BODex":
         if configs.hand.mocap:
-            raw_data_struct = ["**", "**_grasp.npy"]
+            raw_data_struct = ["**", "*_grasp.npy"]
         else:
-            raw_data_struct = ["**", "**_mogen.npy"]
+            raw_data_struct = ["**", "*_mogen.npy"]
     else:
-        raw_data_struct = ["**", "**.npy"]
+        raw_data_struct = ["**", "*.npy"]
     raw_data_path_lst = glob(
         os.path.join(configs.task.data_path, *raw_data_struct), recursive=True
     )
@@ -146,7 +169,7 @@ def task_format(configs):
         result_iter = pool.imap_unordered(eval(configs.task.data_name), iterable_params)
         results = list(result_iter)
 
-    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/*.npy"), recursive=True)
     logging.info(f"Get {len(grasp_lst)} grasp data in {configs.save_dir}")
     logging.info(f"Finish format conversion")
     return

@@ -61,9 +61,9 @@ def _single_visd(params):
 
 
 def task_vobj(configs):
-    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/**.npy"), recursive=True)
-    succ_lst = glob(os.path.join(configs.succ_dir, "**/**.npy"), recursive=True)
-    eval_lst = glob(os.path.join(configs.eval_dir, "**/**.npy"), recursive=True)
+    grasp_lst = glob(os.path.join(configs.grasp_dir, "**/*.npy"), recursive=True)
+    succ_lst = glob(os.path.join(configs.succ_dir, "**/*.npy"), recursive=True)
+    eval_lst = glob(os.path.join(configs.eval_dir, "**/*.npy"), recursive=True)
     logging.info(
         f"Find {len(grasp_lst)} grasp data in {configs.grasp_dir}, {len(eval_lst)} evaluated, and {len(succ_lst)} succeeded in {configs.save_dir}"
     )
