@@ -6,12 +6,12 @@ import numpy as np
 import mujoco
 import mujoco.viewer
 import transforms3d.quaternions as tq
+import time
 
 from .rot_util import interplote_pose, interplote_qpos
 
 
 class MjHO:
-
     hand_prefix: str = "child-"
 
     def __init__(
@@ -47,9 +47,7 @@ class MjHO:
                 pos=[0, -1, 2],
                 castshadow=False,
             )
-            self.spec.worldbody.add_camera(
-                name="closeup", pos=[0.75, 1.0, 1.0], xyaxes=[-1, 0, 0, 0, -1, 1]
-            )
+            self.spec.worldbody.add_camera(name="closeup", pos=[0.75, 1.0, 1.0], xyaxes=[-1, 0, 0, 0, -1, 1])
 
         self._add_hand(hand_xml_path, hand_mocap)
         self._add_object(obj_path, obj_scale, obj_density, has_floor_z0)
@@ -57,9 +55,7 @@ class MjHO:
         self.spec.add_key()
         if exclude_table_contact is not None:
             for body_name in exclude_table_contact:
-                self.spec.add_exclude(
-                    bodyname1="world", bodyname2=f"{self.hand_prefix}{body_name}"
-                )
+                self.spec.add_exclude(bodyname1="world", bodyname2=f"{self.hand_prefix}{body_name}")
 
         # Get ready for simulation
         self.model = self.spec.compile()
@@ -79,12 +75,15 @@ class MjHO:
         )
         self._qpos2ctrl_matrix = qpos2ctrl_matrix[..., :-6]
 
+        self.ext_force_on_obj = None
+        self.target_qpos_a = np.zeros((self.model.nu))
+
         self.debug_viewer = None
         self.debug_render = None
         if debug_viewer:
             self.debug_viewer = mujoco.viewer.launch_passive(self.model, self.data)
             self.debug_viewer.sync()
-            pdb.set_trace()
+            # pdb.set_trace()
 
         if debug_render:
             self.debug_render = mujoco.Renderer(self.model, 480, 640)
@@ -111,9 +110,7 @@ class MjHO:
             g.solref[:2] = [0.005, 1]
 
         attach_frame = self.spec.worldbody.add_frame()
-        child_world = attach_frame.attach_body(
-            child_spec.worldbody, self.hand_prefix, ""
-        )
+        child_world = attach_frame.attach_body(child_spec.worldbody, self.hand_prefix, "")
         # Add freejoint and mocap of hand root
         if mocap_base:
             child_world.add_freejoint(name="hand_freejoint")
@@ -207,9 +204,9 @@ class MjHO:
             body1_name = self.model.body(self.model.geom(contact.geom1).bodyid).name
             body2_name = self.model.body(self.model.geom(contact.geom2).bodyid).name
             # hand and object
-            if (
-                body1_id > world_id and body1_id < hand_id and body2_id == object_id
-            ) or (body2_id > world_id and body2_id < hand_id and body1_id == object_id):
+            if (body1_id > world_id and body1_id <= hand_id and body2_id == object_id) or (
+                body2_id > world_id and body2_id <= hand_id and body1_id == object_id
+            ):
                 # keep body1=hand and body2=object
                 if body2_id == object_id:
                     contact_normal = contact.frame[0:3]
@@ -229,12 +226,7 @@ class MjHO:
                     }
                 )
             # hand and hand
-            elif (
-                body1_id > world_id
-                and body1_id < hand_id
-                and body2_id > world_id
-                and body2_id < hand_id
-            ):
+            elif body1_id > world_id and body1_id < hand_id and body2_id > world_id and body2_id < hand_id:
                 hh_contact.append(
                     {
                         "contact_dist": contact.dist,
@@ -253,9 +245,75 @@ class MjHO:
                 self.model.geom_margin[i] = self.model.geom_gap[i] = 0
         return ho_contact, hh_contact
 
-    def set_ext_force_on_obj(self, ext_force):
+    def get_curr_contact_info(self):
+        object_id = self.model.nbody - 1
+        hand_id = self.model.nbody - 2
+        world_id = -1 if self.hand_mocap else 0
+
+        # Processing all contact information
+        ho_contact = []
+        for contact_id, contact in enumerate(self.data.contact):
+            body1_id = self.model.geom(contact.geom1).bodyid
+            body2_id = self.model.geom(contact.geom2).bodyid
+            body1_name = self.model.body(self.model.geom(contact.geom1).bodyid).name
+            body2_name = self.model.body(self.model.geom(contact.geom2).bodyid).name
+            # hand and object
+            if (body1_id > world_id and body1_id <= hand_id and body2_id == object_id) or (
+                body2_id > world_id and body2_id <= hand_id and body1_id == object_id
+            ):
+                contact_force = np.zeros(6)
+                mujoco.mj_contactForce(self.model, self.data, contact_id, contact_force)  # in contact local frame
+
+                # keep body1=hand and body2=object
+                if body2_id == object_id:
+                    contact_frame = contact.frame
+                    hand_body_name = body1_name.removeprefix(self.hand_prefix)
+                    hand_body_id = body1_id
+                    obj_body_name = body2_name
+                else:
+                    contact_frame = -contact.frame
+                    hand_body_name = body2_name.removeprefix(self.hand_prefix)
+                    hand_body_id = body2_id
+                    obj_body_name = body1_name
+
+                # calculate contact pos in in-contact body frame
+                pos_global = contact.pos.copy().reshape(-1, 1)
+                body_pos = self.data.xpos[hand_body_id].reshape(-1, 1)
+                body_mat = self.data.xmat[hand_body_id].reshape(3, 3)
+                pos_local = body_mat.T @ (pos_global - body_pos)
+
+                # calucate contact frame in in-contact body frame
+                # note that the contact.frame is stored in transposed form (row-major)
+                contact_frame = contact_frame.reshape(3, 3).T  # global orientation of the contact [X; Y; Z]
+                contact_frame_local = body_mat.T @ contact_frame
+
+                ho_contact.append(
+                    {
+                        "contact_dist": contact.dist,
+                        "contact_pos": contact.pos,  # in world frame
+                        "contact_pos_local": pos_local,  # in body frame
+                        "contact_force": contact_force,  # in contact local frame (from hand to object)
+                        "contact_frame": contact_frame,  # in world frame
+                        "contact_frame_local": contact_frame_local,  # in body frame
+                        "body1_name": hand_body_name,
+                        "body2_name": obj_body_name,
+                    }
+                )
+
+        return ho_contact
+
+    def set_ext_force_on_obj_single_step(self, ext_force):
+        """
+        Only valid for the next simulation step.
+        """
         self.data.xfrc_applied[-1] = ext_force
         return
+
+    def set_ext_force_on_obj(self, ext_force):
+        """
+        The force will be constantly kept.
+        """
+        self.ext_force_on_obj = ext_force
 
     def reset_pose_qpos(self, hand_qpos, obj_pose):
         # set key frame
@@ -271,14 +329,10 @@ class MjHO:
         mujoco.mj_forward(self.model, self.data)
         return
 
-    def control_hand_with_interp(
-        self, hand_qpos1, hand_qpos2, step_outer=10, step_inner=10
-    ):
+    def control_hand_with_interp(self, hand_qpos1, hand_qpos2, step_outer=10, step_inner=10):
         if self.hand_mocap:
             pose_interp = interplote_pose(hand_qpos1[:7], hand_qpos2[:7], step_outer)
-        qpos_interp = interplote_qpos(
-            self._qpos2ctrl(hand_qpos1), self._qpos2ctrl(hand_qpos2), step_outer
-        )
+        qpos_interp = interplote_qpos(self._qpos2ctrl(hand_qpos1), self._qpos2ctrl(hand_qpos2), step_outer)
         for j in range(step_outer):
             if self.hand_mocap:
                 self.data.mocap_pos[0] = pose_interp[j, :3]
@@ -290,6 +344,8 @@ class MjHO:
 
     def control_hand_step(self, step_inner):
         for _ in range(step_inner):
+            if self.ext_force_on_obj is not None:
+                self.set_ext_force_on_obj_single_step(ext_force=self.ext_force_on_obj)
             mujoco.mj_step(self.model, self.data)
 
         if self.debug_render is not None:
@@ -298,8 +354,31 @@ class MjHO:
             self.debug_images.append(pixels)
 
         if self.debug_viewer is not None:
-            raise NotImplementedError
+            self.debug_viewer.sync()
+            time.sleep(self.spec.option.timestep)
+
         return
+
+    def udpate_debug_viewer(self):
+        if self.debug_viewer is not None:
+            self.debug_viewer.sync()
+
+    def close_view_and_render(self):
+        if self.debug_viewer is not None:
+            self.debug_viewer.close()
+        if self.debug_render is not None:
+            self.debug_render.close()
+
+    def get_qpos_f(self, names):
+        return np.asarray([self.data.joint(self.hand_prefix + name).qpos[0] for name in names])
+
+    def get_qpos_a(self, names=None):
+        return self.target_qpos_a.copy()
+
+    def ctrl_qpos_a(self, names, q_a):
+        for i, name in enumerate(names):
+            self.data.actuator(self.hand_prefix + name).ctrl = q_a[i]
+        self.target_qpos_a[:] = np.asarray(q_a)[:]
 
 
 class RobotKinematics:
@@ -314,12 +393,8 @@ class RobotKinematics:
             mesh_id = geom.dataid
             if mesh_id != -1:
                 mjm = self.mj_model.mesh(mesh_id)
-                vert = self.mj_model.mesh_vert[
-                    mjm.vertadr[0] : mjm.vertadr[0] + mjm.vertnum[0]
-                ]
-                face = self.mj_model.mesh_face[
-                    mjm.faceadr[0] : mjm.faceadr[0] + mjm.facenum[0]
-                ]
+                vert = self.mj_model.mesh_vert[mjm.vertadr[0] : mjm.vertadr[0] + mjm.vertnum[0]]
+                face = self.mj_model.mesh_face[mjm.faceadr[0] : mjm.faceadr[0] + mjm.facenum[0]]
                 body_name = self.mj_model.body(geom.bodyid).name
                 mesh_name = mjm.name
                 self.mesh_geom_info[f"{body_name}_{mesh_name}"] = {
@@ -369,11 +444,9 @@ class RobotKinematics:
 
 
 if __name__ == "__main__":
-    xml_path = os.path.join(
-        os.path.dirname(__file__), "../../assets/hand/shadow/customized.xml"
-    )
+    xml_path = os.path.join(os.path.dirname(__file__), "../../assets/hand/shadow/customized.xml")
     kinematic = RobotKinematics(xml_path)
     hand_qpos = np.zeros((22))
     kinematic.forward_kinematics(hand_qpos)
     visual_mesh = kinematic.get_posed_meshes()
-    visual_mesh.export(f"debug_hand.obj")
+    visual_mesh.export("debug_hand.obj")

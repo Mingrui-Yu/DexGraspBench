@@ -1,8 +1,8 @@
 max_num: -1
 obj_mass: 0.1   # unit: kg 
 miu_coef: [0.6, 0.02]
-debug_render: False
-debug_viewer: False
+debug_render: True
+debug_viewer: True
 debug_dir: ${save_dir}/debug
 
 simulation_metrics: 
