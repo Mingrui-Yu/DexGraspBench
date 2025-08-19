@@ -1,5 +1,6 @@
 import os
 import pdb
+import copy
 
 import trimesh
 import numpy as np
@@ -95,6 +96,10 @@ class MjHO:
             self.debug_images = []
         return
 
+    def reset(self):
+        self.ext_force_on_obj = None
+        self.target_qpos_a = np.zeros((self.model.nu))
+
     def _add_hand(self, xml_path, mocap_base):
         # Read hand xml
         child_spec = mujoco.MjSpec.from_file(xml_path)
@@ -180,7 +185,7 @@ class MjHO:
             return self._qpos2ctrl_matrix @ hand_qpos
 
     def get_obj_pose(self):
-        return self.data.qpos[-7:]
+        return self.data.qpos[-7:].copy()
 
     def get_contact_info(self, hand_qpos, obj_pose, obj_margin=0):
         # Set margin and gap to detect contact
@@ -300,7 +305,7 @@ class MjHO:
                     }
                 )
 
-        return ho_contact
+        return copy.deepcopy(ho_contact)
 
     def set_ext_force_on_obj_single_step(self, ext_force):
         """
@@ -342,6 +347,14 @@ class MjHO:
             self.control_hand_step(step_inner)
         return
 
+    def ctrl_qpos_a_with_interp(self, hand_qpos1, hand_qpos2, names, step_outer=10, step_inner=10):
+        qpos_interp = interplote_qpos(hand_qpos1, hand_qpos2, step_outer)
+        for j in range(step_outer):
+            self.ctrl_qpos_a(names, qpos_interp[j])
+            mujoco.mj_forward(self.model, self.data)
+            self.control_hand_step(step_inner)
+        return
+
     def control_hand_step(self, step_inner):
         for _ in range(step_inner):
             if self.ext_force_on_obj is not None:
@@ -370,7 +383,7 @@ class MjHO:
             self.debug_render.close()
 
     def get_qpos_f(self, names):
-        return np.asarray([self.data.joint(self.hand_prefix + name).qpos[0] for name in names])
+        return np.array([self.data.joint(self.hand_prefix + name).qpos[0] for name in names])
 
     def get_qpos_a(self, names=None):
         return self.target_qpos_a.copy()
@@ -379,6 +392,11 @@ class MjHO:
         for i, name in enumerate(names):
             self.data.actuator(self.hand_prefix + name).ctrl = q_a[i]
         self.target_qpos_a[:] = np.asarray(q_a)[:]
+
+    def get_obj_mass(self):
+        object_id = self.model.nbody - 1
+        mass = self.model.body_mass[object_id]
+        return mass
 
 
 class RobotKinematics:

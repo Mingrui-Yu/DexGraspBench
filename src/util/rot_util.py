@@ -10,11 +10,13 @@ import numpy as np
 import transforms3d.quaternions as tq
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
+import pdb
 
 
 def interplote_pose(pose1: np.array, pose2: np.array, step: int) -> np.array:
     trans1, quat1 = pose1[:3], pose1[3:7]
     trans2, quat2 = pose2[:3], pose2[3:7]
+
     slerp = Slerp([0, 1], R.from_quat([quat1, quat2], scalar_first=True))
     trans_interp = np.linspace(trans1, trans2, step + 1)[1:]
     quat_interp = slerp(np.linspace(0, 1, step + 1))[1:].as_quat(scalar_first=True)
@@ -29,15 +31,11 @@ def np_normalize_vector(v):
     return v / np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-12)
 
 
-def np_normal_to_rot(
-    axis_0, rot_base1=np.array([[0, 1, 0]]), rot_base2=np.array([[0, 0, 1]])
-):
+def np_normal_to_rot(axis_0, rot_base1=np.array([[0, 1, 0]]), rot_base2=np.array([[0, 0, 1]])):
     proj_xy = np.abs(np.sum(axis_0 * rot_base1, axis=-1, keepdims=True))
     axis_1 = np.where(proj_xy > 0.99, rot_base2, rot_base1)
 
-    axis_1 = np_normalize_vector(
-        axis_1 - np.sum(axis_1 * axis_0, axis=-1, keepdims=True) * axis_0
-    )
+    axis_1 = np_normalize_vector(axis_1 - np.sum(axis_1 * axis_0, axis=-1, keepdims=True) * axis_0)
     axis_2 = np.cross(axis_0, axis_1, axis=-1)
 
     return np.stack([axis_0, axis_1, axis_2], axis=-1)
@@ -73,9 +71,7 @@ def even_sample_points_on_sphere(dim_num, delta_angle=45):
     comb_array = np.stack(comb_lst, axis=-1)  # [p, d-1]
 
     # used to remove duplicated points!
-    has_one = ((comb_array == point_per_dim - 1) | (comb_array == 0)) * np.arange(
-        start=1, stop=dim_num
-    )
+    has_one = ((comb_array == point_per_dim - 1) | (comb_array == 0)) * np.arange(start=1, stop=dim_num)
     has_one = np.where(has_one == 0, dim_num, has_one)
     has_one = has_one.min(axis=-1)
 
@@ -181,23 +177,13 @@ def torch_quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
     return o.reshape(quaternions.shape[:-1] + (3, 3))
 
 
-def torch_normal_to_rot(
-    axis_0, rot_base1=torch.tensor([0, 0, 1.0]), rot_base2=torch.tensor([0, 1.0, 0])
-):
-    tmp_rot_base1 = rot_base1.view([1] * (len(axis_0.shape) - 1) + [3]).to(
-        axis_0.device
-    )
-    tmp_rot_base2 = rot_base2.view([1] * (len(axis_0.shape) - 1) + [3]).to(
-        axis_0.device
-    )
+def torch_normal_to_rot(axis_0, rot_base1=torch.tensor([0, 0, 1.0]), rot_base2=torch.tensor([0, 1.0, 0])):
+    tmp_rot_base1 = rot_base1.view([1] * (len(axis_0.shape) - 1) + [3]).to(axis_0.device)
+    tmp_rot_base2 = rot_base2.view([1] * (len(axis_0.shape) - 1) + [3]).to(axis_0.device)
 
     proj_xy = (axis_0 * tmp_rot_base1).sum(dim=-1, keepdim=True).abs()
-    axis_1 = torch.where(
-        proj_xy > 0.99, tmp_rot_base2, tmp_rot_base1
-    )  # avoid normal prependicular to axis_y1
-    axis_1 = torch_normalize_vector(
-        axis_1 - (axis_1 * axis_0).sum(dim=-1, keepdim=True) * axis_0
-    )
+    axis_1 = torch.where(proj_xy > 0.99, tmp_rot_base2, tmp_rot_base1)  # avoid normal prependicular to axis_y1
+    axis_1 = torch_normalize_vector(axis_1 - (axis_1 * axis_0).sum(dim=-1, keepdim=True) * axis_0)
     axis_2 = torch.cross(axis_0, axis_1, dim=-1)
     return torch.stack([axis_0, axis_1, axis_2], dim=-1)
 
@@ -245,9 +231,7 @@ def torch_matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
         raise ValueError(f"Invalid rotation matrix shape {matrix.shape}.")
 
     batch_dim = matrix.shape[:-2]
-    m00, m01, m02, m10, m11, m12, m20, m21, m22 = torch.unbind(
-        matrix.reshape(batch_dim + (9,)), dim=-1
-    )
+    m00, m01, m02, m10, m11, m12, m20, m21, m22 = torch.unbind(matrix.reshape(batch_dim + (9,)), dim=-1)
 
     q_abs = _sqrt_positive_part(
         torch.stack(
@@ -287,9 +271,9 @@ def torch_matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
 
     # if not for numerical problems, quat_candidates[i] should be same (up to a sign),
     # forall i; we pick the best-conditioned one (with the largest denominator)
-    out = quat_candidates[
-        torch.nn.functional.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :
-    ].reshape(batch_dim + (4,))
+    out = quat_candidates[torch.nn.functional.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :].reshape(
+        batch_dim + (4,)
+    )
     return standardize_quaternion(out)
 
 
@@ -313,14 +297,10 @@ def torch_quaternion_to_axis_angle(quaternions: torch.Tensor) -> torch.Tensor:
     eps = 1e-6
     small_angles = angles.abs() < eps
     sin_half_angles_over_angles = torch.empty_like(angles)
-    sin_half_angles_over_angles[~small_angles] = (
-        torch.sin(half_angles[~small_angles]) / angles[~small_angles]
-    )
+    sin_half_angles_over_angles[~small_angles] = torch.sin(half_angles[~small_angles]) / angles[~small_angles]
     # for x small, sin(x/2) is about x/2 - (x/2)^3/6
     # so sin(x/2)/x is about 1/2 - (x*x)/48
-    sin_half_angles_over_angles[small_angles] = (
-        0.5 - (angles[small_angles] * angles[small_angles]) / 48
-    )
+    sin_half_angles_over_angles[small_angles] = 0.5 - (angles[small_angles] * angles[small_angles]) / 48
     return quaternions[..., 1:] / sin_half_angles_over_angles
 
 

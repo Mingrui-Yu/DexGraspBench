@@ -34,7 +34,7 @@ class RobotAdaptor:
 
     def _doa2dof(self, q_a):
         if isinstance(q_a, torch.Tensor):
-            q_f = torch.tensor(self.doa2dof_matrix) @ q_a.reshape(-1, 1)
+            q_f = torch.tensor(self.doa2dof_matrix, dtype=q_a.dtype) @ q_a.reshape(-1, 1)
         else:
             q_f = self.doa2dof_matrix @ q_a.reshape(-1, 1)
         return q_f.reshape(-1)

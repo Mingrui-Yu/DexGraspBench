@@ -1,0 +1,2 @@
+# python src/main.py setting=tabletop hand=dummy_arm_shadow task=control_eval exp_name=learn task.method=ours task.input_data=grasp_dir task.debug_viewer=False
+python src/main.py setting=tabletop hand=dummy_arm_shadow task=control_stat exp_name=learn task.method=ours

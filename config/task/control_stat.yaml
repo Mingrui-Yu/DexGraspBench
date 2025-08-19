@@ -1,0 +1,4 @@
+method: ours
+
+lift_height: 0.2
+n_terminal_steps: 5

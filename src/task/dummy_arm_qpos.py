@@ -208,7 +208,10 @@ def compute_dummy_arm_qpos(params, device, robot, kin):
     for i in range(len(input_npy_path_list)):
         path = input_npy_path_list[i]
         graspdata = graspdata_list[i]  # keep the other saved info
-        graspdata["joint_names"] = robot.arm.dof_names + graspdata["joint_names"]
+        if "joint_names" in graspdata.keys():
+            graspdata["joint_names"] = robot.arm.dof_names + graspdata["joint_names"]
+        else:
+            graspdata["joint_names"] = robot.dof_names  # need check
         graspdata["pregrasp_qpos"] = pregrasp_qpos_array[i, :]
         graspdata["grasp_qpos"] = grasp_qpos_array[i, :]
         graspdata["squeeze_qpos"] = squeeze_qpos_array[i, :]

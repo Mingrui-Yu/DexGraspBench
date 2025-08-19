@@ -126,7 +126,7 @@ class Shadow(Hand):
         self.side = self.prefix  # TODO
         assert self.side == "rh" or self.side == "lh"
 
-        # if self.side == "rh":
-        #     # self._urdf_path = "assets/robots/shadow_hand/shadow_hand_body.urdf"
-        # else:
-        #     raise NotImplementedError()
+        if self.side == "rh":
+            self._mjcf_path = "assets/hand/shadow/right_hand.xml"
+        else:
+            raise NotImplementedError()

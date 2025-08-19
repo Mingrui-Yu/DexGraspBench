@@ -2,11 +2,12 @@ max_num: -1
 obj_mass: 0.1   # unit: kg 
 miu_coef: [0.6, 0.02]
 debug_render: False
-debug_viewer: False
+debug_viewer: True
 debug_dir: ${save_dir}/debug
 
 simulation_metrics: 
-  max_pene: 0.01  # If the initial hand penetrates the object too much, regard it as a failure
+  max_pene: 0.005  # If the initial hand penetrates the object too much, regard it as a failure
+  max_force: 1.0
   trans_thre: 0.05
   angle_thre: 15
 
@@ -22,5 +23,18 @@ pene_contact_metrics:
 # added by mingrui
 with_approaching: False
 arm_pregrasp_is_grasp: True
-method: "open_loop" # "open_loop" or "ours"
+method: "op" # "open_loop" or "ours"
+input_data: "succ_dir" # "grasp_dir" or "succ_dir"
+
+graspdata:
+  pregrasp_t: 2 # >0
+  squeeze_t: 0 # >0
+
+# params of our controller
+control:
+  free_stage_switch: True
+
+# evaluation setting
+offsets: [0.02]
+
 

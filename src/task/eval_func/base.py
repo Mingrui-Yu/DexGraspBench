@@ -89,18 +89,20 @@ class BaseEval:
     def _eval_simulate_under_extforce(self):
         eval_config = self.configs.task.simulation_metrics
 
-        # Reset to init hand qpos and check contact
-        init_qpos = self.grasp_data["pregrasp_qpos"] if self.configs.hand.mocap else self.grasp_data["approach_qpos"][0]
+        # set the arm qpos of pregrasp_qpos to be the same as grasp_qpos
+        if (not self.configs.hand.mocap) and self.configs.task.arm_pregrasp_is_grasp:
+            n_arm_dof = 6
+            self.grasp_data["pregrasp_qpos"][:n_arm_dof] = self.grasp_data["grasp_qpos"][:n_arm_dof]
+
+        if (not self.configs.task.with_approaching) or self.configs.hand.mocap:
+            init_qpos = self.grasp_data["pregrasp_qpos"]
+        else:
+            init_qpos = self.grasp_data["approach_qpos"][0]
         init_obj_pose = self.grasp_data["obj_pose"]
 
-        # # DEBUG
-        # init_qpos = init_qpos.copy()
-        # init_qpos[2] += 0.2
-
         # DEBUG: shift the object a little
-        init_qpos[:6] = self.grasp_data["grasp_qpos"][:6]
-        init_obj_pose[0] += 0.005
-        init_obj_pose[1] -= 0.01
+        # init_obj_pose[0] += 0.005
+        # init_obj_pose[1] -= 0.01
 
         ho_contact, hh_contact = self.mj_ho.get_contact_info(init_qpos, init_obj_pose)
 
@@ -115,12 +117,13 @@ class BaseEval:
             return False, 100, 100
 
         # Record initial object pose
+        lift_height = 0.2
         pre_obj_qpos = deepcopy(self.mj_ho.get_obj_pose())
         if self.configs.setting == "tabletop":
-            pre_obj_qpos[2] += 0.1
+            pre_obj_qpos[2] += lift_height
 
         # Detailed simulation methods for testing
-        self._simulate_under_extforce_details(pre_obj_qpos)
+        self._simulate_under_extforce_details(pre_obj_qpos, lift_height=lift_height)
 
         # Compare the resulted object pose
         latter_obj_qpos = self.mj_ho.get_obj_pose()
@@ -192,6 +195,10 @@ class BaseEval:
         return fc_metric_results
 
     def run(self):
+        if np.isnan(self.grasp_data["pregrasp_qpos"]).any():
+            logging.warning("The grasp pose contains NAN. Skip it.")
+            return
+
         eval_results = {}
         if self.configs.task.pene_contact_metrics is not None:
             (

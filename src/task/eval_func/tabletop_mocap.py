@@ -3,10 +3,11 @@ from copy import deepcopy
 import numpy as np
 
 from .base import BaseEval
+import pdb
 
 
 class tabletopMocapEval(BaseEval):
-    def _simulate_under_extforce_details(self, pre_obj_qpos):
+    def _simulate_under_extforce_details(self, pre_obj_qpos, lift_height):
         # 1. Set object gravity
         external_force_direction = np.array([0.0, 0, -1, 0, 0, 0])
         self.mj_ho.set_ext_force_on_obj(10 * external_force_direction * self.configs.task.obj_mass)
@@ -27,7 +28,7 @@ class tabletopMocapEval(BaseEval):
 
         # 5. Lift the object
         lift_qpos = deepcopy(self.grasp_data["squeeze_qpos"])
-        lift_qpos[2] += 0.1
+        lift_qpos[2] += lift_height
         self.mj_ho.control_hand_with_interp(
             self.grasp_data["squeeze_qpos"],
             lift_qpos,

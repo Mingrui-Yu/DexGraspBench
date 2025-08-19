@@ -42,9 +42,7 @@ class fcMocapEval(BaseEval):
             )
 
             # 4. Add external force on the object
-            self.mj_ho.set_ext_force_on_obj(
-                10 * external_force_direction[i] * self.configs.task.obj_mass
-            )
+            self.mj_ho.set_ext_force_on_obj(10 * external_force_direction[i] * self.configs.task.obj_mass)
 
             # 5. Wait for 2 seconds
             for _ in range(10):
@@ -52,12 +50,10 @@ class fcMocapEval(BaseEval):
 
                 # Early stop
                 latter_obj_qpos = self.mj_ho.get_obj_pose()
-                delta_pos, delta_angle = np_get_delta_qpos(
-                    pre_obj_qpos, latter_obj_qpos
+                delta_pos, delta_angle = np_get_delta_qpos(pre_obj_qpos, latter_obj_qpos)
+                succ_flag = (delta_pos < self.configs.task.simulation_metrics.trans_thre) & (
+                    delta_angle < self.configs.task.simulation_metrics.angle_thre
                 )
-                succ_flag = (
-                    delta_pos < self.configs.task.simulation_metrics.trans_thre
-                ) & (delta_angle < self.configs.task.simulation_metrics.angle_thre)
                 if not succ_flag:
                     break
             if not succ_flag:

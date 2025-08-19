@@ -5,3 +5,5 @@ from .vis_usd import task_vusd
 from .convert_format import task_format
 from .data_collect import task_collect
 from .dummy_arm_qpos import task_dummy_arm_qpos
+from .control_eval import task_control_eval
+from .control_stat import task_control_stat

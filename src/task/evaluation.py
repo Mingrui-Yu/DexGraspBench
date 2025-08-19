@@ -17,7 +17,12 @@ def safe_eval_one(params):
         elif (not configs.hand.mocap) and (not configs.hand.dummy_arm):
             eval_func_name = f"{configs.setting}ArmEval"
         elif (not configs.hand.mocap) and (configs.hand.dummy_arm):
-            eval_func_name = f"{configs.setting}DummyArmOursEval"
+            if configs.task.method == "open_loop":
+                eval_func_name = f"{configs.setting}DummyArmOpEval"
+            elif configs.task.method == "ours":
+                eval_func_name = f"{configs.setting}DummyArmOursEval"
+            else:
+                raise NotImplementedError()
         else:
             raise NotImplementedError()
         eval(eval_func_name)(input_npy_path, configs).run()
@@ -44,6 +49,7 @@ def task_eval(configs):
     skip_num = init_num - len(input_path_lst)
     input_path_lst = sorted(input_path_lst)
     if configs.task.max_num > 0:
+        # input_path_lst = input_path_lst[: configs.task.max_num]
         input_path_lst = np.random.permutation(input_path_lst)[: configs.task.max_num]
 
     logging.info(f"Find {init_num} grasp data in {configs.grasp_dir}, skip {skip_num}, and use {len(input_path_lst)}.")
@@ -52,13 +58,10 @@ def task_eval(configs):
         return
 
     iterable_params = zip(input_path_lst, [configs] * len(input_path_lst))
+
     if configs.task.debug_viewer or configs.task.debug_render:
         for i, ip in enumerate(iterable_params):
-            # DEBUG
-            if i >= 18:
-                print(f"i: {i}, input_npy_path: {ip[0]}")
-
-                safe_eval_one(ip)
+            safe_eval_one(ip)
     else:
         with multiprocessing.Pool(processes=configs.n_worker) as pool:
             result_iter = pool.imap_unordered(safe_eval_one, iterable_params)
