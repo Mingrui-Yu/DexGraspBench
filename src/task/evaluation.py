@@ -16,13 +16,13 @@ def safe_eval_one(params):
             eval_func_name = f"{configs.setting}MocapEval"
         elif (not configs.hand.mocap) and (not configs.hand.dummy_arm):
             eval_func_name = f"{configs.setting}ArmEval"
-        elif (not configs.hand.mocap) and (configs.hand.dummy_arm):
-            if configs.task.method == "open_loop":
-                eval_func_name = f"{configs.setting}DummyArmOpEval"
-            elif configs.task.method == "ours":
-                eval_func_name = f"{configs.setting}DummyArmOursEval"
-            else:
-                raise NotImplementedError()
+        # elif (not configs.hand.mocap) and (configs.hand.dummy_arm):
+        #     if configs.task.method == "open_loop":
+        #         eval_func_name = f"{configs.setting}DummyArmOpEval"
+        #     elif configs.task.method == "ours":
+        #         eval_func_name = f"{configs.setting}DummyArmOursEval"
+        #     else:
+        #         raise NotImplementedError()
         else:
             raise NotImplementedError()
         eval(eval_func_name)(input_npy_path, configs).run()

@@ -28,7 +28,7 @@ A standard and unified simulation benchmark in [MuJoCo](https://github.com/googl
 git submodule update --init --recursive --progress
 ```
 2. Install the python environment via [Anaconda](https://www.anaconda.com/). 
-```
+```bash
 conda create -n DGBench python=3.10 
 conda activate DGBench
 pip install numpy==1.26.4
@@ -42,6 +42,10 @@ pip install scikit-learn
 pip install usd-core
 pip install imageio
 pip install 'qpsolvers[clarabel]'
+
+# added by mingrui
+pip install tqdm
+conda install pinocchio -c conda-forge
 ```
 
 ### (Optional) Object Preparation
