@@ -10,17 +10,17 @@ simulation_metrics:
   trans_thre: 0.05
   angle_thre: 15
 
-analytic_fc_metrics: 
-  contact_tip_only: True 
-  contact_threshold: 0.005
-  type: ['qp', 'qp_dfc', 'q1', 'tdg', 'dfc']
+analytic_fc_metrics:
+  # contact_tip_only: True 
+  # contact_threshold: 0.005
+  # type: ['qp', 'qp_dfc', 'q1', 'tdg', 'dfc']
 
-pene_contact_metrics: 
-  contact_margin: 0.01  # unit: m. Max contact distance.
-  contact_threshold: 0.002
+pene_contact_metrics:
+  # contact_margin: 0.01  # unit: m. Max contact distance.
+  # contact_threshold: 0.002
 
-# added by mingrui
-with_approaching: False
-arm_pregrasp_is_grasp: True
-method: "open_loop" # "open_loop" or "ours"
+# # added by mingrui
+# with_approaching: False
+# arm_pregrasp_is_grasp: False
+# method: "open_loop" # "open_loop" or "ours"
 

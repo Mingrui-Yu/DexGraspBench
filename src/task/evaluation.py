@@ -49,7 +49,6 @@ def task_eval(configs):
     skip_num = init_num - len(input_path_lst)
     input_path_lst = sorted(input_path_lst)
     if configs.task.max_num > 0:
-        # input_path_lst = input_path_lst[: configs.task.max_num]
         input_path_lst = np.random.permutation(input_path_lst)[: configs.task.max_num]
 
     logging.info(f"Find {init_num} grasp data in {configs.grasp_dir}, skip {skip_num}, and use {len(input_path_lst)}.")

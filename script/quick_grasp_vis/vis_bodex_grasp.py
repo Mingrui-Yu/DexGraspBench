@@ -19,17 +19,25 @@ from trimesh_visualizer import Visualizer
 
 
 if __name__ == "__main__":
-    hand = "shadow"
+    hand = "leap_tac3d"
     robot = RobotFactory.create_robot(hand, prefix="rh")
     robot_mjcf_path = robot.get_file_path("mjcf")
-    mesh_dir_path = "/home/mingrui/mingrui/research/adaptive_grasping_2/DexGraspBench/third_party/mujoco_menagerie/shadow_hand/assets"
 
     visualizer = Visualizer(robot_mjcf_path=robot_mjcf_path)
 
-    prefix = "/home/mingrui/mingrui/research/adaptive_grasping_2/BODex/src/curobo/content/assets/output/sim_shadow/tabletop/debug/graspdata/"
-    grasp_file_path = "core_bottle_1a7ba1f4c892e2da30711cdbdbc73924/tabletop_ur10e/scale006_pose000_0_grasp.npy"
+    # prefix = "/home/mingrui/mingrui/research/adaptive_grasping_2/BODex/src/curobo/content/assets/output/sim_shadow/tabletop/debug/graspdata/"
+    # grasp_file_path = "core_bottle_1a7ba1f4c892e2da30711cdbdbc73924/tabletop_ur10e/scale006_pose000_0_grasp.npy"
+
+    # prefix = "/home/mingrui/mingrui/research/adaptive_grasping_2/BODex/src/curobo/content/assets/output/sim_allegro/tabletop/debug/graspdata/"
+    # grasp_file_path = "core_bottle_47ebee26ca51177ac3fdab075b98c5d8/tabletop_ur10e/scale012_pose002_0_grasp.npy"
+
+    prefix = "/home/mingrui/mingrui/research/adaptive_grasping_2/BODex/src/curobo/content/assets/output/sim_leap_tac3d/tabletop/debug/graspdata/"
+    grasp_file_path = "core_bowl_a29f53390194166665c638ab0bc6bc66/tabletop_ur10e/scale008_pose002_0_grasp.npy"
+
     grasp_data = np.load(os.path.join(prefix, grasp_file_path), allow_pickle=True).item()
-    scene_path = str(grasp_data["scene_path"][0]).replace("adaptive_grasp", "adaptive_grasping_2")
+    scene_path = str(grasp_data["scene_path"][0])
+    if "adaptive_grasping_2" not in scene_path:
+        scene_path = scene_path.replace("adaptive_grasp", "adaptive_grasping_2")
     scene_data = np.load(scene_path, allow_pickle=True).item()
 
     joint_names = grasp_data["joint_names"]

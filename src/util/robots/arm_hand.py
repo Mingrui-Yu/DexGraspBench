@@ -28,22 +28,25 @@ class DummyArmShadow(ArmHand):
         assert len(self._base_pose) == 7
 
 
-@register_robot("no_arm_shadow")
-class NoArmShadow(ArmHand):
+@register_robot("dummy_arm_allegro")
+class DummyArmAllegro(ArmHand):
     def __init__(self, prefix):
         super().__init__(prefix)
 
-        self.name = "no_arm_shadow"
+        self.name = "dummy_arm_allegro"
 
-        self.arm: Arm = None
-        self.hand: Hand = RobotFactory.create_robot(robot_type="shadow", prefix=prefix)
+        arm_type = "dummy_arm"
+        hand_type = "allegro"
+        self.arm: Arm = RobotFactory.create_robot(robot_type=arm_type, prefix=prefix)
+        self.hand: Hand = RobotFactory.create_robot(robot_type=hand_type, prefix=prefix)
 
         self.side = self.prefix  # TODO
         assert self.side == "rh" or self.side == "lh"
 
         if self.side == "rh":
-            self._urdf_path = "assets/robots/shadow_hand/shadow_hand_body.urdf"
+            self._mjcf_path = "assets/hand/dummy_arm_allegro/right.xml"
         else:
             raise NotImplementedError()
 
-        self._base_pose = [0, 0, 0, 0, 0, 0, 1]  # (xyz, xyzw)
+        self._base_pose = [0.0, 0.0, 0.0, 0, 0.0, 0, 1.0]  # (xyz, xyzw), base pose in the world frame
+        assert len(self._base_pose) == 7

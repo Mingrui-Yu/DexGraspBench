@@ -26,33 +26,17 @@ if __name__ == "__main__":
     visualizer = Visualizer(robot_mjcf_path=robot_mjcf_path)
 
     object_path = "assets/object/DGN_2k"
-    pc_path = "vision_data/azure_kinect_dk"
-    object_pc_folder = os.path.join(object_path, pc_path)
-    prefix = (
-        "/home/mingrui/mingrui/research/adaptive_grasping_2/DexLearn/output/bodex_tabletop_allegro_nflow_debug0/tests/"
-    )
-    grasp_file_path = "step_050000/mujoco_SAMe_200_KX7ZmOw47co/tabletop_ur10e/scale006_pose000_0/partial_pc_01_0.npy"
+    prefix = "/home/mingrui/mingrui/research/adaptive_grasping_2/DexGraspBench/output/bodex_allegro/graspdata/"
+    grasp_file_path = "mujoco_Seagate_Archive_HDD_8_TB_Internal_hard_drive_SATA_6Gbs_35_ST8000AS0002/tabletop_ur10e/scale012_pose003_0/0_grasp.npy"
     grasp_data = np.load(os.path.join(prefix, grasp_file_path), allow_pickle=True).item()
     scene_path = grasp_data["scene_path"]
     scene_data = np.load(scene_path, allow_pickle=True).item()
-    pc_path = os.path.join(object_pc_folder, scene_data["scene_id"], os.path.basename(grasp_file_path)).replace(
-        "_0.npy", ".npy"
-    )
 
     obj_name = scene_data["task"]["obj_name"]
     obj_pose = scene_data["scene"][obj_name]["pose"]
     obj_scale = scene_data["scene"][obj_name]["scale"]
     obj_mesh_path = scene_data["scene"][obj_name]["file_path"]
     obj_mesh_path = os.path.abspath(os.path.join(os.path.dirname(scene_path), obj_mesh_path))
-
-    # pointcloud mesh
-    pc = np.load(pc_path).reshape(-1, 3)
-    pc_centroid = np.mean(pc, axis=0, keepdims=True)
-
-    # move to centroid
-    pc = pc - pc_centroid
-    colors = np.tile([0, 0, 255, 255], (pc.shape[0], 1))  # Blue in RGBA
-    pc = tm.points.PointCloud(pc, colors=colors)
 
     # object mesh
     obj_transform = posQuat2Isometry3d(obj_pose[:3], quatWXYZ2XYZW(obj_pose[3:]))
@@ -65,20 +49,5 @@ if __name__ == "__main__":
     robot_mesh = visualizer.get_robot_trimesh_data(i=0, color=[255, 0, 0])
 
     axis = tm.creation.axis(origin_size=0.01, axis_length=1.0)
-    scene = tm.Scene(geometry=[robot_mesh, obj_mesh, axis, pc])
+    scene = tm.Scene(geometry=[robot_mesh, obj_mesh, axis])
     scene.show(smooth=False)
-
-    # # grasp_pose_id = 0
-    # for index in [3]:
-    #     joint_names = grasp_info["joint_names"]
-    #     robot_pose = grasp_info["grasp_poses"][0, [index], 0, :]
-
-    #     print("index: ", index)
-    #     print("robot_pose: ", robot_pose)
-
-    #     visualize.set_robot_parameters(hand_pose=torch.tensor(robot_pose), joint_names=joint_names)
-    #     robot_mesh_1 = visualize.get_robot_trimesh_data(i=0, color=[0, 255, 0])
-
-    #     axis = tm.creation.axis(origin_size=0.01, axis_length=1.0)
-    #     scene = tm.Scene(geometry=[robot_mesh_1, obj_mesh, table_mesh, axis])
-    #     scene.show(smooth=False)

@@ -72,6 +72,10 @@ def BODex(params):
         robot_pose[:, :, 3:7] = torch_matrix_to_quaternion(tmp_rot)
         robot_pose[:, :, :3] -= (tmp_rot @ torch.tensor([0, 0, 0.1])).numpy()
         pass
+    elif configs.hand_name == "leap_tac3d":
+        # no need to convert base pose
+        # no need to convert joint order
+        pass
     else:
         raise NotImplementedError
 
