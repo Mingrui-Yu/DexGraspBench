@@ -34,6 +34,7 @@ class MjHO:
         self.spec.option.timestep = 0.004
         self.spec.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
         self.spec.option.disableflags = mujoco.mjtDisableBit.mjDSBL_GRAVITY
+
         if debug_render or debug_viewer:
             self.spec.add_texture(
                 type=mujoco.mjtTexture.mjTEXTURE_SKYBOX,
@@ -58,12 +59,18 @@ class MjHO:
             for body_name in exclude_table_contact:
                 self.spec.add_exclude(bodyname1="world", bodyname2=f"{self.hand_prefix}{body_name}")
 
+        # exclude all contacts between hand and table
+        body_names = [b.name for b in self.spec.bodies]
+        for body_name in body_names:
+            if ("object" not in body_name) and ("world" not in body_name):
+                self.spec.add_exclude(bodyname1="world", bodyname2=body_name)
+
         # Get ready for simulation
         self.model = self.spec.compile()
         self.data = mujoco.MjData(self.model)
 
         mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
-        mujoco.mj_forward(self.model, self.data)
+        # mujoco.mj_forward(self.model, self.data) # removed by mingrui
 
         # For ctrl
         qpos2ctrl_matrix = np.zeros((self.model.nu, self.model.nv))

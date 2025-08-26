@@ -1,6 +1,8 @@
 import pinocchio as pin
 from typing import List, Optional
 import numpy as np
+import os
+import re
 
 
 class PinocchioHelper:
@@ -135,9 +137,9 @@ class PinocchioHelper:
 
 if __name__ == "__main__":
     robot = PinocchioHelper(
-        robot_file_path="assets/hand/dummy_arm_shadow/right.xml",
+        robot_file_path="assets/hand/dummy_arm_leap_tac3d/leap_tac3d.xml",
         robot_file_type="mjcf",
     )
 
-    a = robot.get_frame_space_jacobian(frame_name="rh_ffdistal")
-    print(a.shape)
+    # a = robot.get_frame_space_jacobian(frame_name="rh_ffdistal")
+    # print(a.shape)

@@ -1031,7 +1031,7 @@ class GraspController:
 if __name__ == "__main__":
     from pin_helper import PinocchioHelper
 
-    robot: ArmHand = RobotFactory.create_robot(robot_type="dummy_arm_shadow", prefix="rh")
+    robot: ArmHand = RobotFactory.create_robot(robot_type="dummy_arm_shadow", prefix="rh_")
     robot_file_path = robot.get_file_path("mjcf")
     dof_names = robot.dof_names
     doa_names = robot.doa_names

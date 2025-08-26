@@ -1,6 +1,8 @@
 import torch
 import pytorch_kinematics as pk
 from typing import Optional, List, Union, Dict
+import re
+import os
 
 from mr_utils.utils_torch import quaternion_xyzw2wxyz
 from .robots.base import Robot
@@ -19,7 +21,14 @@ class PytorchKinematicsHelper:
 
         # full chain
         file_path = self.robot.get_file_path(type="mjcf")
-        self.chain = pk.build_chain_from_mjcf(open(file_path).read())
+        mjcf_string = open(file_path).read()
+        match = re.search(r'meshdir="([^"]+)"', mjcf_string)
+        if match:  # convert relative path of meshdir to absolute path
+            meshdir = match.group(1)
+            if not os.path.isabs(meshdir):
+                meshdir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(file_path)), meshdir))
+                mjcf_string = re.sub(r'meshdir="([^"]+)"', f'meshdir="{meshdir}"', mjcf_string)
+        self.chain = pk.build_chain_from_mjcf(mjcf_string)
         self.chain = self.chain.to(device=device, dtype=torch.float64)  # dtype seems necessary
 
     def tf_world_to_base(self, tf_in_w: pk.Transform3d):

@@ -4,8 +4,6 @@ from glob import glob
 import multiprocessing
 import logging
 from pathlib import Path
-from tqdm import tqdm
-import yaml
 
 import matplotlib.pyplot as plt
 import torch
@@ -32,9 +30,7 @@ def read_data_with_index(args):
 
 
 def get_control_results(data_lst, configs):
-    robot_prefix = "rh_" if "allegro" not in configs.hand_name else ""
-    robot: ArmHand = RobotFactory.create_robot(robot_type=configs.hand_name, prefix=robot_prefix)
-
+    robot: ArmHand = RobotFactory.create_robot(robot_type=configs.hand_name, prefix="rh_")
     robot_file_path = robot.get_file_path("mjcf")
     dof_names = robot.dof_names
     doa_names = robot.doa_names
@@ -50,7 +46,7 @@ def get_control_results(data_lst, configs):
     grasp_ctrl = GraspController(robot, robot_adaptor)
 
     lift_height = configs.task.lift_height
-    n_s = configs.task.n_terminal_steps
+    n_s = configs.n_terminal_steps
 
     err_obj_pos_all = []
     err_obj_angle_all = []
@@ -61,7 +57,7 @@ def get_control_results(data_lst, configs):
     failure_cases = []
     invalid_cases = []
 
-    for i, r_data in enumerate(tqdm(data_lst, desc="Computing results")):
+    for i, r_data in enumerate(data_lst):
         if r_data["obj_pose"] == []:
             invalid_cases.append(i)
             continue
@@ -120,44 +116,8 @@ def get_control_results(data_lst, configs):
     print(f"ave sum_cf_all: {np.mean(sum_cf_all)} +- {np.std(sum_cf_all)}")
     print(f"ave wrench_all: {np.mean(wrench_all)} +- {np.std(wrench_all)}")
     print(f"ave normalized_wrench_all: {np.mean(normalized_wrench_all)} +- {np.std(normalized_wrench_all)}")
-    print(f"failure cases: {failure_cases}")
+    # print(f"failure cases: {failure_cases}")
     print(f"num of invalid cases: {len(invalid_cases)}")
-
-    stat_results = {
-        "success_rate": success_rate,
-        "ave_obj_pos_err": {
-            "mean": float(np.mean(err_obj_pos_all)),
-            "std": float(np.std(err_obj_pos_all)),
-        },
-        "ave_obj_angle_err": {
-            "mean": float(np.mean(err_obj_angle_all)),
-            "std": float(np.std(err_obj_angle_all)),
-        },
-        "ave_sum_cf_all": {
-            "mean": float(np.mean(sum_cf_all)),
-            "std": float(np.std(sum_cf_all)),
-        },
-        "ave_wrench_all": {
-            "mean": float(np.mean(wrench_all)),
-            "std": float(np.std(wrench_all)),
-        },
-        "ave_normalized_wrench_all": {
-            "mean": float(np.mean(normalized_wrench_all)),
-            "std": float(np.std(normalized_wrench_all)),
-        },
-        "failure_cases": failure_cases,
-        "num_invalid_cases": len(invalid_cases),
-        "num_valid_cases": (len(success_cases) + len(failure_cases)),
-    }
-
-    # save yaml
-    method = configs.task.method
-    setting_name = configs.task.setting_name
-    save_dir = os.path.join(os.path.dirname(configs.control_dir), "control_stat_res")
-    os.makedirs(save_dir, exist_ok=True)
-    save_path = os.path.join(save_dir, f"{setting_name}_{method}.yaml")
-    with open(save_path, "w") as f:
-        yaml.safe_dump(stat_results, f, sort_keys=False)
 
     # index = success_cases[np.argmax(err_obj_angle_all)]
     # grasp_id = index // 8
@@ -165,15 +125,48 @@ def get_control_results(data_lst, configs):
     # print(f"max obj rot err: {np.max(err_obj_angle_all)}, grasp_id: {grasp_id}, pos_id: {pos_id}")
 
 
+def compare_control_results(control_lst, data_lst, configs):
+    robot: ArmHand = RobotFactory.create_robot(robot_type=configs.hand_name, prefix="rh_")
+    robot_file_path = robot.get_file_path("mjcf")
+    dof_names = robot.dof_names
+    doa_names = robot.doa_names
+    doa2dof_matrix = robot.doa2dof_matrix
+
+    robot_model = PinocchioHelper(robot_file_path=robot_file_path, robot_file_type="mjcf")
+    robot_adaptor = RobotAdaptor(
+        robot_model=robot_model,
+        dof_names=dof_names,
+        doa_names=doa_names,
+        doa2dof_matrix=doa2dof_matrix,
+    )
+    grasp_ctrl = GraspController(robot, robot_adaptor)
+    lift_height = configs.task.lift_height
+    n_s = configs.n_terminal_steps
+
+    res = {"op": {}, "ours": {}}
+    for method in res.keys():
+        res[method]["err_obj_pos_all"] = []
+        res[method]["err_obj_angle_all"] = []
+        res[method]["sum_cf_all"] = []
+        res[method]["wrench_all"] = []
+        res[method]["normalized_wrench_all"] = []
+        res[method]["success_cases"] = []
+        res[method]["failure_cases"] = []
+        res[method]["invalid_cases"] = []
+        res[method]["idx"] = 0
+
+    for file, data in zip(control_lst, data_lst):
+        method = os.path.basename(os.path.dirname(file))  # 上一级文件夹名
+
+
 def task_control_stat(configs):
     control_lst = glob(os.path.join(configs.control_dir, "**/*.npy"), recursive=True)
 
     # the control results by the method
     method = configs.task.method
-    setting_name = configs.task.setting_name
+    # setting_name = "dist_2"
 
-    control_lst = [p for p in control_lst if Path(p).match(f"*/{method}/*.npy") and setting_name in p]
-    # control_lst = [x for x in control_lst if method in x and "pos_0" not in x]
+    # control_lst = [p for p in control_lst if Path(p).match(f"*/{method}/*.npy") and setting_name in p]
     control_lst = sorted(control_lst)
     logging.info(f"Find {len(control_lst)} grasp data using control method '{method}' in {configs.control_dir}.")
 
@@ -183,6 +176,8 @@ def task_control_stat(configs):
         for idx, data in result_iter:  # keep the original order
             data_lst[idx] = data
 
-    get_control_results(data_lst, configs)
+    compare_control_results(control_lst, data_lst, configs)
+
+    # get_control_results(data_lst, configs)
 
     logging.info("Finish statistics")

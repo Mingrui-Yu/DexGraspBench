@@ -1,0 +1,49 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            // "args": ["setting=tabletop", "hand=shadow", "task=format", "exp_name=debug", "task.data_name=BODex", "task.max_num=100", 
+            //          "task.data_path=../BODex/src/curobo/content/assets/output/sim_shadow/tabletop/debug/graspdata"],
+            // "args": ["setting=tabletop", "hand=shadow", "task=dummy_arm_qpos", "exp_name=debug", "task.max_num=-1"],
+            // "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=eval", "exp_name=debug", "task.max_num=100"],
+            // "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=control_eval", "exp_name=debug", 
+            //          "task.method=ours", "task.max_num=100"],
+            // "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=control_stat", "exp_name=debug", 
+            //          "task.method=op"],
+            // "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=vusd", "exp_name=debug", "task.max_num=10"],
+            // "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=vobj", "exp_name=debug", "task.max_num=10"],
+            // "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=collect", "exp_name=debug"],
+
+            // "args": ["setting=tabletop", "hand=shadow", "task=format", "exp_name=learn", "task.data_name=Learning", "task.max_num=100", 
+            //          "task.data_path=../DexLearn/output/bodex_tabletop_shadow_nflow_debug0/tests/step_045000"],
+            // "args": ["setting=tabletop", "hand=shadow", "task=dummy_arm_qpos", "exp_name=learn", "task.max_num=-1"],
+            // "args": ["setting=tabletop", "hand=shadow", "task=eval", "exp_name=learn", "task.max_num=100"],
+            
+            "args": ["setting=tabletop", "hand=dummy_arm_allegro", "task=control_eval", "exp_name=learn", 
+                     "task.method=ours", "task.input_data=grasp_dir", "task.debug_viewer=True"],
+            // "args": ["setting=tabletop", "hand=dummy_arm_leap_tac3d", "task=control_stat", "exp_name=learn", 
+            //          "task.method=ours"],
+
+            // "args": ["setting=tabletop", "hand=leap_tac3d", "task=format", "exp_name=debug", "task.data_name=BODex", "task.max_num=10", 
+            //          "task.data_path=../BODex/src/curobo/content/assets/output/sim_leap_tac3d/tabletop/debug/graspdata"],
+            // "args": ["setting=tabletop", "hand=leap_tac3d", "task=eval", "exp_name=debug", "task.max_num=100", "task.debug_viewer=True"],
+
+            //  "args": ["setting=tabletop", "hand=dummy_arm_allegro", "task=control_eval", "exp_name=learn", 
+            //          "task.method=ours", "task.input_data=grasp_dir", "task.debug_viewer=True"],
+
+            // "args": ["setting=tabletop", "hand=leap_tac3d", "task=dummy_arm_qpos", "exp_name=learn", "task.max_num=-1"],
+            //  "args": ["setting=tabletop", "hand=dummy_arm_leap_tac3d", "task=control_eval", "exp_name=learn", 
+            //          "task.method=ours", "task.input_data=grasp_dir", "task.debug_viewer=True"],
+        }
+    ]
+}

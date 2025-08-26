@@ -72,7 +72,7 @@ class Hand(Robot, ABC):
     def mano2dex_mapping(self):
         mano2dex_mapping = {}
         for key, val in self._mano2dex_mapping.items():
-            mano2dex_mapping[key] = [f"{self.prefix}_{name}" for name in val]
+            mano2dex_mapping[key] = [f"{self.prefix}{name}" for name in val]
         return mano2dex_mapping
 
     @property
@@ -83,7 +83,7 @@ class Hand(Robot, ABC):
 
     @property
     def base_name(self):
-        return f"{self.prefix}_{self._base_name}"
+        return f"{self.prefix}{self._base_name}"
 
     def to_dex(self, mano_body):
         return self.mano2dex_mapping[mano_body]
@@ -93,15 +93,15 @@ class Hand(Robot, ABC):
 
     @property
     def dof_names(self):
-        return [f"{self.prefix}_{name}" for name in self._dof_names]
+        return [f"{self.prefix}{name}" for name in self._dof_names]
 
     @property
     def doa_names(self):
-        return [f"{self.prefix}_{name}" for name in self._doa_names]
+        return [f"{self.prefix}{name}" for name in self._doa_names]
 
     @property
     def body_names(self):
-        return [f"{self.prefix}_{name}" for name in self._body_names]
+        return [f"{self.prefix}{name}" for name in self._body_names]
 
     @property
     def doa_max_vel(self):
@@ -139,15 +139,15 @@ class Arm(Robot, ABC):
 
     @property
     def dof_names(self):
-        return [f"{self.prefix}_{name}" for name in self._dof_names]
+        return [f"{self.prefix}{name}" for name in self._dof_names]
 
     @property
     def doa_names(self):
-        return [f"{self.prefix}_{name}" for name in self._doa_names]
+        return [f"{self.prefix}{name}" for name in self._doa_names]
 
     @property
     def body_names(self):
-        return [f"{self.prefix}_{name}" for name in self._body_names]
+        return [f"{self.prefix}{name}" for name in self._body_names]
 
     @property
     def doa_max_vel(self):
@@ -212,7 +212,7 @@ class ArmHand(Robot, ABC):
 
     @property
     def base_name(self):
-        return f"{self.prefix}_{self.arm._base_name}"
+        return f"{self.prefix}{self.arm._base_name}"
 
     @property
     def doa2dof_matrix(self):

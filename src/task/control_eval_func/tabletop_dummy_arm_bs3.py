@@ -14,9 +14,9 @@ from util.grasp_controller import GraspController
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-class tabletopDummyArmOursEval(BaseEval):
+class tabletopDummyArmBS3Eval(BaseEval):
     def _initialize(self):
-        self.method_name = "ours"
+        self.method_name = "bs3"
         robot_name = self.configs.hand_name
         robot_prefix = "rh_" if "allegro" not in robot_name else ""
         robot: ArmHand = RobotFactory.create_robot(robot_type=robot_name, prefix=robot_prefix)
@@ -62,10 +62,18 @@ class tabletopDummyArmOursEval(BaseEval):
         qpos_f_path_2 = self.grasp_ctrl.interplote_qpos(grasp_qpos_f, squeeze_qpos_f, step=ctrl_freq * 2)
         qpos_f_path = np.concatenate([qpos_f_path_1, qpos_f_path_2], axis=0)
 
-        final_sum_force = self.grasp_ctrl.final_sum_force
-        force_incre_step = final_sum_force / qpos_f_path_2.shape[0]
+        if "shadow" in self.robot.name:
+            final_single_force = 5.0
+        elif "allegro" in self.robot.name:
+            final_single_force = 3.0
+        elif "leap" in self.robot.name:
+            final_single_force = 2.5
+        else:
+            raise NotImplementedError
+
+        force_incre_step = final_single_force / qpos_f_path_2.shape[0]
         last_dq_a = np.zeros((self.robot.n_doa))
-        max_steps = qpos_f_path.shape[0] * 2
+        max_steps = int(qpos_f_path.shape[0] * 1.2)
         stage = 1
         step = 0
         waypoint_idx = 0
@@ -84,7 +92,7 @@ class tabletopDummyArmOursEval(BaseEval):
             grasp_matrix = self.grasp_ctrl.compute_grasp_matrix(ho_contacts)
 
             # terminal criteria
-            if step >= qpos_f_path.shape[0] and curr_sum_force > final_sum_force:
+            if step >= qpos_f_path.shape[0] and np.all(contact_force_all[:, 0] > final_single_force):
                 break
 
             t1 = time.time()
@@ -112,21 +120,26 @@ class tabletopDummyArmOursEval(BaseEval):
 
             if stage == 1:
                 desired_sum_force = max(self.grasp_ctrl.stage1_force_thres, curr_sum_force - force_incre_step)
+                desired_forces = None
             elif stage == 2:
-                desired_sum_force = min(curr_sum_force, final_sum_force) + force_incre_step
+                desired_sum_force = None
+                desired_forces = (
+                    np.clip(contact_force_all[:, 0] + force_incre_step, 0.0, final_single_force) + force_incre_step
+                )
 
             t1 = time.time()
-            res = self.grasp_ctrl.ctrl_opt3(
+            res = self.grasp_ctrl.ctrl_opt_bs3(
                 stage=stage,
                 dt=action_dt,
                 curr_q_a=curr_qpos_a,
                 target_q_f=target_qpos_f,
                 desired_sum_force=desired_sum_force,
+                desired_forces=desired_forces,
                 last_dq_a=last_dq_a,
                 ho_contacts=ho_contacts,
                 grasp_matrix=grasp_matrix,
                 b_contact=True,
-                b_print_opt_details=False,
+                b_print_opt_details=b_debug,
             )
             t_ctrl_opt = time.time() - t1
             opt_q_a = res["q_a"]

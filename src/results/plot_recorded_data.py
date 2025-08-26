@@ -13,7 +13,7 @@ from util.robots.base import RobotFactory, Robot, ArmHand
 from mr_utils.utils_calc import skew
 
 if __name__ == "__main__":
-    robot: ArmHand = RobotFactory.create_robot(robot_type="dummy_arm_shadow", prefix="rh")
+    robot: ArmHand = RobotFactory.create_robot(robot_type="dummy_arm_shadow", prefix="rh_")
     robot_file_path = robot.get_file_path("mjcf")
     dof_names = robot.dof_names
     doa_names = robot.doa_names
@@ -29,8 +29,8 @@ if __name__ == "__main__":
 
     grasp_ctrl = GraspController(robot, robot_adaptor)
 
-    method = "op"
-    data_path = f"output/learn_dummy_arm_shadow/control/core_jar_32dc55c3e945384dbc5e533ab711fd24/tabletop_ur10e/scale012_pose004_0/partial_pc_00_7_{method}.npy"
+    method = "ours"
+    data_path = f"output/learn_dummy_arm_allegro/control/core_bottle_15787789482f045d8add95bf56d3d2fa/tabletop_ur10e/scale006_pose004_0/{method}/partial_pc_00_6_dist_0_pos_0.npy"
 
     r_data = np.load(data_path, allow_pickle=True).item()
 

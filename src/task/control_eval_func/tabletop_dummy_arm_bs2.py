@@ -13,10 +13,15 @@ from util.grasp_controller import GraspController
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
+"""
+Baseline2:
+    All the same with ours, except that arm motion is not leveraged in stage 1.
+"""
 
-class tabletopDummyArmOursEval(BaseEval):
+
+class tabletopDummyArmBS2Eval(BaseEval):
     def _initialize(self):
-        self.method_name = "ours"
+        self.method_name = "bs2"
         robot_name = self.configs.hand_name
         robot_prefix = "rh_" if "allegro" not in robot_name else ""
         robot: ArmHand = RobotFactory.create_robot(robot_type=robot_name, prefix=robot_prefix)
@@ -116,7 +121,7 @@ class tabletopDummyArmOursEval(BaseEval):
                 desired_sum_force = min(curr_sum_force, final_sum_force) + force_incre_step
 
             t1 = time.time()
-            res = self.grasp_ctrl.ctrl_opt3(
+            res = self.grasp_ctrl.ctrl_opt_bs2(
                 stage=stage,
                 dt=action_dt,
                 curr_q_a=curr_qpos_a,

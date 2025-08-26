@@ -16,6 +16,14 @@ def safe_eval_one(params):
             eval_func_name = f"{configs.setting}DummyArmOpEval"
         elif configs.task.method == "ours":
             eval_func_name = f"{configs.setting}DummyArmOursEval"
+        elif configs.task.method == "bs1":
+            eval_func_name = f"{configs.setting}DummyArmBS1Eval"
+        elif configs.task.method == "bs2":
+            eval_func_name = f"{configs.setting}DummyArmBS2Eval"
+        elif configs.task.method == "bs3":
+            eval_func_name = f"{configs.setting}DummyArmBS3Eval"
+        elif configs.task.method == "bs4":
+            eval_func_name = f"{configs.setting}DummyArmBS4Eval"
         else:
             raise NotImplementedError()
         eval(eval_func_name)(input_npy_path, configs).run()
@@ -40,6 +48,7 @@ def task_control_eval(configs):
     if configs.task.max_num > 0:
         # input_path_lst = input_path_lst[: configs.task.max_num]
         input_path_lst = np.random.permutation(input_path_lst)[: configs.task.max_num]
+        input_path_lst = sorted(input_path_lst)
 
     logging.info(f"Find {init_num} grasp data in {input_dir}, skip {skip_num}, and use {len(input_path_lst)}.")
 
@@ -49,7 +58,8 @@ def task_control_eval(configs):
     iterable_params = zip(input_path_lst, [configs] * len(input_path_lst))
     if configs.task.debug_viewer or configs.task.debug_render:
         for i, ip in enumerate(iterable_params):
-            if i in [89]:  # 89
+            # if i >= 0:
+            if i in [13, 20, 22, 31, 34, 35, 59, 60, 75, 77, 88]:
                 print(f"grasp sample id: {i}")
                 safe_eval_one(ip)
     else:

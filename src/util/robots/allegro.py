@@ -29,7 +29,24 @@ class Allegro(Hand):
             "thj2",
             "thj3",
         ]
-        self._doa_names = copy.copy(self._dof_names)
+        self._doa_names = [
+            "ffa0",
+            "ffa1",
+            "ffa2",
+            "ffa3",
+            "mfa0",
+            "mfa1",
+            "mfa2",
+            "mfa3",
+            "rfa0",
+            "rfa1",
+            "rfa2",
+            "rfa3",
+            "tha0",
+            "tha1",
+            "tha2",
+            "tha3",
+        ]
         self._doa2dof_matrix = np.eye(len(self._dof_names))
         self._doa_kp = [5] * len(self._doa_names)
         self._body_names = []
@@ -38,7 +55,7 @@ class Allegro(Hand):
         self._base_name = "palm"
         self._base_pose = [0, 0, 0, 0, 0, 0, 1]  # (xyz, xyzw)
 
-        self.side = self.prefix  # TODO
+        self.side = "rh"  # TODO
         assert self.side == "rh" or self.side == "lh"
 
         if self.side == "rh":

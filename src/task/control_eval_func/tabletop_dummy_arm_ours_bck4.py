@@ -18,7 +18,7 @@ class tabletopDummyArmOursEval(BaseEval):
     def _initialize(self):
         self.method_name = "ours"
         robot_name = self.configs.hand_name
-        robot: ArmHand = RobotFactory.create_robot(robot_type=robot_name, prefix="rh")
+        robot: ArmHand = RobotFactory.create_robot(robot_type=robot_name, prefix="rh_")
         robot_file_path = robot.get_file_path("mjcf")
         dof_names = robot.dof_names
         doa_names = robot.doa_names

@@ -123,7 +123,7 @@ class Shadow(Hand):
         self._base_name = "palm"
         self._base_pose = [0, 0, 0, 0, 0, 0, 1]  # (xyz, xyzw)
 
-        self.side = self.prefix  # TODO
+        self.side = "rh"  # TODO
         assert self.side == "rh" or self.side == "lh"
 
         if self.side == "rh":

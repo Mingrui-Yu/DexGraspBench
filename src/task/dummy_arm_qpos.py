@@ -245,7 +245,8 @@ def task_dummy_arm_qpos(configs):
     from util.pk_helper import PytorchKinematicsHelper
 
     device = "cuda:0"
-    robot = RobotFactory.create_robot(robot_type=f"dummy_arm_{configs.hand_name}", prefix="rh")
+    robot_prefix = "rh_" if "allegro" not in configs.hand_name else ""
+    robot = RobotFactory.create_robot(robot_type=f"dummy_arm_{configs.hand_name}", prefix=robot_prefix)
     kin = PytorchKinematicsHelper(robot=robot, device=device)
     kin.create_serial_chain(ee_name=robot.arm.body_names[-1])  # dummy_RotZB
 

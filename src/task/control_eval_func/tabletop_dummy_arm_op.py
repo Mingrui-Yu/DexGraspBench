@@ -14,7 +14,9 @@ class tabletopDummyArmOpEval(BaseEval):
     def _initialize(self):
         self.method_name = "op"
         robot_name = self.configs.hand_name
-        robot: ArmHand = RobotFactory.create_robot(robot_type=robot_name, prefix="rh")
+        robot_prefix = "rh_" if "allegro" not in robot_name else ""
+        robot: ArmHand = RobotFactory.create_robot(robot_type=robot_name, prefix=robot_prefix)
+
         robot_file_path = robot.get_file_path("mjcf")
         dof_names = robot.dof_names
         doa_names = robot.doa_names

@@ -1,7 +1,9 @@
 <mujoco model="allegro_right">
-  <compiler angle="radian" meshdir="/home/mingrui/mingrui/research/adaptive_grasping_2/DexGraspBench/third_party/mujoco_menagerie/wonik_allegro/assets" autolimits="true"/>
+  <compiler angle="radian" 
+    meshdir="/home/mingrui/mingrui/research/adaptive_grasping_2/DexGraspBench/third_party/mujoco_menagerie/wonik_allegro/assets" autolimits="true"
+    />
 
-  <option cone="elliptic" impratio="10"/>
+  <option cone="elliptic" impratio="10" gravity="0 0 0"  />
 
   <default>
     <default class="allegro_right">
@@ -137,31 +139,31 @@
 
   <worldbody>
   <body name="base" gravcomp="1">
-      <body name="rh_dummy_base" gravcomp="1">
+      <body name="dummy_base" gravcomp="1">
         <inertial pos="0 0 0" mass="0.001" diaginertia="0.0001 0.0001 0.0001" />
-        <body name="rh_dummy_TransXB" gravcomp="1">
+        <body name="dummy_TransXB" gravcomp="1">
           <inertial pos="0 0 0" mass="0.001" diaginertia="0.0001 0.0001 0.0001" />
-          <joint name="rh_dummy_TransXJ" class="palm_slide" pos="0 0 0" axis="1 0 0"
+          <joint name="dummy_TransXJ" class="palm_slide" pos="0 0 0" axis="1 0 0"
             actuatorfrcrange="-10000000 10000000" />
-          <body name="rh_dummy_TransYB" gravcomp="1">
+          <body name="dummy_TransYB" gravcomp="1">
             <inertial pos="0 0 0" mass="0.001" diaginertia="0.0001 0.0001 0.0001" />
-            <joint name="rh_dummy_TransYJ" class="palm_slide" pos="0 0 0" axis="0 1 0"
+            <joint name="dummy_TransYJ" class="palm_slide" pos="0 0 0" axis="0 1 0"
               actuatorfrcrange="-10000000 10000000" />
-            <body name="rh_dummy_TransZB" pos="0 0 0" gravcomp="1">
+            <body name="dummy_TransZB" pos="0 0 0" gravcomp="1">
               <inertial pos="0 0 0" mass="0.001" diaginertia="0.0001 0.0001 0.0001" />
-              <joint name="rh_dummy_TransZJ" class="palm_slide" pos="0 0 0" axis="0 0 1"
+              <joint name="dummy_TransZJ" class="palm_slide" pos="0 0 0" axis="0 0 1"
                 actuatorfrcrange="-10000000 10000000" />
-              <body name="rh_dummy_RotXB" gravcomp="1">
+              <body name="dummy_RotXB" gravcomp="1">
                 <inertial pos="0 0 0" mass="0.001" diaginertia="0.0001 0.0001 0.0001" />
-                <joint name="rh_dummy_RotXJ" class="palm_hinge" pos="0 0 0" axis="1 0 0"
+                <joint name="dummy_RotXJ" class="palm_hinge" pos="0 0 0" axis="1 0 0"
                   actuatorfrcrange="-10000000 10000000" />
-                <body name="rh_dummy_RotYB" gravcomp="1">
+                <body name="dummy_RotYB" gravcomp="1">
                   <inertial pos="0 0 0" mass="0.001" diaginertia="0.0001 0.0001 0.0001" />
-                  <joint name="rh_dummy_RotYJ" class="palm_hinge" pos="0 0 0" axis="0 1 0"
+                  <joint name="dummy_RotYJ" class="palm_hinge" pos="0 0 0" axis="0 1 0"
                     actuatorfrcrange="-10000000 10000000" />
-                  <body name="rh_dummy_RotZB" gravcomp="1">
+                  <body name="dummy_RotZB" gravcomp="1">
                     <inertial pos="0 0 0" mass="0.001" diaginertia="0.0001 0.0001 0.0001" />
-                    <joint name="rh_dummy_RotZJ" class="palm_hinge" pos="0 0 0" axis="0 0 1"
+                    <joint name="dummy_RotZJ" class="palm_hinge" pos="0 0 0" axis="0 0 1"
                       actuatorfrcrange="-10000000 10000000" />
 
                     <body name="palm" quat="0 1 0 1" childclass="allegro_right">
@@ -288,12 +290,12 @@
   </contact>
 
   <actuator>
-    <position name="rh_dummy_TransXA" joint="rh_dummy_TransXJ" class="palm_slide" ctrlrange="-1 1" />
-    <position name="rh_dummy_TransYA" joint="rh_dummy_TransYJ" class="palm_slide" ctrlrange="-1 1" />
-    <position name="rh_dummy_TransZA" joint="rh_dummy_TransZJ" class="palm_slide" ctrlrange="-1 1" />
-    <position name="rh_dummy_RotXA" joint="rh_dummy_RotXJ" class="palm_hinge" />
-    <position name="rh_dummy_RotYA" joint="rh_dummy_RotYJ" class="palm_hinge" />
-    <position name="rh_dummy_RotZA" joint="rh_dummy_RotZJ" class="palm_hinge" />
+    <position name="dummy_TransXA" joint="dummy_TransXJ" class="palm_slide" ctrlrange="-1 1" />
+    <position name="dummy_TransYA" joint="dummy_TransYJ" class="palm_slide" ctrlrange="-1 1" />
+    <position name="dummy_TransZA" joint="dummy_TransZJ" class="palm_slide" ctrlrange="-1 1" />
+    <position name="dummy_RotXA" joint="dummy_RotXJ" class="palm_hinge" />
+    <position name="dummy_RotYA" joint="dummy_RotYJ" class="palm_hinge" />
+    <position name="dummy_RotZA" joint="dummy_RotZJ" class="palm_hinge" />
 
     <position name="ffa0" joint="ffj0" class="base"/>
     <position name="ffa1" joint="ffj1" class="proximal"/>

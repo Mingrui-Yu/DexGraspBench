@@ -20,7 +20,7 @@ from trimesh_visualizer import Visualizer
 
 if __name__ == "__main__":
     hand = "leap_tac3d"
-    robot = RobotFactory.create_robot(hand, prefix="rh")
+    robot = RobotFactory.create_robot(hand, prefix="rh_")
     robot_mjcf_path = robot.get_file_path("mjcf")
 
     visualizer = Visualizer(robot_mjcf_path=robot_mjcf_path)

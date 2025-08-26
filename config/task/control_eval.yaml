@@ -23,7 +23,7 @@ pene_contact_metrics:
 # added by mingrui
 with_approaching: False
 arm_pregrasp_is_grasp: True
-method: "op" # "open_loop" or "ours"
+method: "op" # "op" or "ours"
 input_data: "succ_dir" # "grasp_dir" or "succ_dir"
 
 graspdata:
@@ -33,8 +33,9 @@ graspdata:
 # params of our controller
 control:
   free_stage_switch: True
+  stage2_after_full_path: True
 
 # evaluation setting
-offsets: [0.02]
+offsets: [0.02] # unit: m
 
 

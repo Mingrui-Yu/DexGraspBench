@@ -4,6 +4,7 @@ import torch
 import trimesh as tm
 import yaml
 import os
+import re
 import json
 
 import sys
@@ -20,7 +21,7 @@ from trimesh_visualizer import Visualizer
 
 if __name__ == "__main__":
     hand = "allegro"
-    robot = RobotFactory.create_robot(hand, prefix="rh")
+    robot = RobotFactory.create_robot(hand, prefix="rh_")
     robot_mjcf_path = robot.get_file_path("mjcf")
 
     visualizer = Visualizer(robot_mjcf_path=robot_mjcf_path)
@@ -29,14 +30,16 @@ if __name__ == "__main__":
     pc_path = "vision_data/azure_kinect_dk"
     object_pc_folder = os.path.join(object_path, pc_path)
     prefix = (
-        "/home/mingrui/mingrui/research/adaptive_grasping_2/DexLearn/output/bodex_tabletop_allegro_nflow_debug0/tests/"
+        "/home/mingrui/mingrui/research/adaptive_grasping_2/DexLearn/output/bodex_tabletop_allegro_nflow_debug1/tests/"
     )
-    grasp_file_path = "step_050000/mujoco_SAMe_200_KX7ZmOw47co/tabletop_ur10e/scale006_pose000_0/partial_pc_01_0.npy"
+    grasp_file_path = (
+        "step_050000/core_bottle_1a7ba1f4c892e2da30711cdbdbc73924/tabletop_ur10e/scale006_pose000_0/partial_pc_01_2.npy"
+    )
     grasp_data = np.load(os.path.join(prefix, grasp_file_path), allow_pickle=True).item()
     scene_path = grasp_data["scene_path"]
     scene_data = np.load(scene_path, allow_pickle=True).item()
-    pc_path = os.path.join(object_pc_folder, scene_data["scene_id"], os.path.basename(grasp_file_path)).replace(
-        "_0.npy", ".npy"
+    pc_path = os.path.join(
+        object_pc_folder, scene_data["scene_id"], re.sub(r"_\d+\.npy$", ".npy", os.path.basename(grasp_file_path))
     )
 
     obj_name = scene_data["task"]["obj_name"]
@@ -47,10 +50,11 @@ if __name__ == "__main__":
 
     # pointcloud mesh
     pc = np.load(pc_path).reshape(-1, 3)
-    pc_centroid = np.mean(pc, axis=0, keepdims=True)
 
-    # move to centroid
-    pc = pc - pc_centroid
+    # # move to centroid
+    # pc_centroid = np.mean(pc, axis=0, keepdims=True)
+    # pc = pc - pc_centroid
+
     colors = np.tile([0, 0, 255, 255], (pc.shape[0], 1))  # Blue in RGBA
     pc = tm.points.PointCloud(pc, colors=colors)
 

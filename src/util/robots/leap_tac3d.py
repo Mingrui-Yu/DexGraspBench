@@ -29,16 +29,33 @@ class LeapTac3d(Hand):
             "joint_14",
             "joint_15",
         ]
-        self._doa_names = copy.copy(self._dof_names)
+        self._doa_names = [
+            "actuator_1",
+            "actuator_0",
+            "actuator_2",
+            "actuator_3",
+            "actuator_5",
+            "actuator_4",
+            "actuator_6",
+            "actuator_7",
+            "actuator_9",
+            "actuator_8",
+            "actuator_10",
+            "actuator_11",
+            "actuator_12",
+            "actuator_13",
+            "actuator_14",
+            "actuator_15",
+        ]
         self._doa2dof_matrix = np.eye(len(self._dof_names))
         self._doa_kp = [5] * len(self._doa_names)
         self._body_names = []
 
         self._doa_max_vel = [0.3] * len(self._doa_names)
-        self._base_name = "palm"
+        self._base_name = "palm_lower"
         self._base_pose = [0, 0, 0, 0, 0, 0, 1]  # (xyz, xyzw)
 
-        self.side = self.prefix  # TODO
+        self.side = "rh"  # TODO
         assert self.side == "rh" or self.side == "lh"
 
         if self.side == "rh":
