@@ -27,10 +27,10 @@ def combine_mean_std(means, stds, counts):
 
 
 def main():
-    setting_lst = ["dist_2"]
+    setting_lst = ["dist_0", "dist_2"]
     hand_lst = ["shadow", "allegro", "leap_tac3d"]
-    method_lst = ["ours", "op", "bs1", "bs2", "bs3", "bs4"]
-    # method_lst = ["ours", "bs4"]
+    # method_lst = ["ours", "op", "bs1", "bs2", "bs3", "bs4"]
+    method_lst = ["ours"]
 
     n_valid = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))
     success_rate = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))

@@ -42,6 +42,7 @@ class GraspController:
         # hyper-parameters
         self.stage2_incontact_force_only = True  # little influence
         self.stage2_Ks_hand_only = True  # little influence
+        self.stage2_penalize_tan_motion = True
 
         # self.Ke = np.diag([10000, 1000, 1000])  # x-axis is the contact normal
         self.Ke = np.diag([1e6, 1e6, 1e6])  # x-axis is the contact normal
@@ -318,7 +319,7 @@ class GraspController:
             cost_tan_motion = 0
             cost_tan_cf = 0
             if b_contact and n_con > 0:
-                if stage == 1:
+                if stage == 1 or self.stage2_penalize_tan_motion:
                     # cost tangential motion (restrict the tangential motion of contacts)
                     dp = contact_jaco_all @ dq_a.reshape(-1, 1)
                     self.err_cp = err_cp = dp

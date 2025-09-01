@@ -3,7 +3,8 @@
 
 hands=("dummy_arm_shadow" "dummy_arm_allegro" "dummy_arm_leap_tac3d")
 # hands=("dummy_arm_shadow")
-methods=("ours" "op" "bs1" "bs2" "bs3" "bs4")
+# methods=("ours" "op" "bs1" "bs2" "bs3" "bs4")
+methods=("ours")
 offsets="[0,0.02]" # unit: m; should be no space after comma
 setting_names=("dist_0" "dist_2")
 
