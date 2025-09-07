@@ -47,7 +47,7 @@ def get_control_results(data_lst, configs):
         doa_names=doa_names,
         doa2dof_matrix=doa2dof_matrix,
     )
-    grasp_ctrl = GraspController(robot, robot_adaptor)
+    grasp_ctrl = GraspController(configs=None, robot=robot, robot_adaptor=robot_adaptor)
 
     lift_height = configs.task.lift_height
     n_s = configs.task.n_terminal_steps
@@ -152,6 +152,10 @@ def get_control_results(data_lst, configs):
 
     # save yaml
     method = configs.task.method
+    ablation_name = configs.task.ablation_name
+    if method == "ours":
+        method = f"{method}_{ablation_name}"
+
     setting_name = configs.task.setting_name
     save_dir = os.path.join(os.path.dirname(configs.control_dir), "control_stat_res")
     os.makedirs(save_dir, exist_ok=True)
@@ -170,6 +174,9 @@ def task_control_stat(configs):
 
     # the control results by the method
     method = configs.task.method
+    ablation_name = configs.task.ablation_name
+    if method == "ours":
+        method = f"{method}_{ablation_name}"
     setting_name = configs.task.setting_name
 
     control_lst = [p for p in control_lst if Path(p).match(f"*/{method}/*.npy") and setting_name in p]

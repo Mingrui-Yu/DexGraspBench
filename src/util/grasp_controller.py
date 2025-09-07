@@ -24,7 +24,7 @@ except:
 
 
 class GraspController:
-    def __init__(self, robot: ArmHand, robot_adaptor: RobotAdaptor):
+    def __init__(self, configs, robot: ArmHand, robot_adaptor: RobotAdaptor):
         self.robot = robot
         self.robot_adaptor = robot_adaptor
 
@@ -37,20 +37,32 @@ class GraspController:
             "balance_metric": [],
             "t_check_balance": [],
             "t_ctrl_opt": [],
+            "t_step_cost": [],
+            "stage": [],
+            "opt_res": [],
+            "desired_sum_force": [],
         }
 
         # hyper-parameters
-        self.stage2_incontact_force_only = True  # little influence
-        self.stage2_Ks_hand_only = True  # little influence
-        self.stage2_penalize_tan_motion = True
+        if configs:
+            self.stage2_incontact_force_only = configs.stage2_incontact_force_only
+            self.stage2_Ks_hand_only = configs.stage2_Ks_hand_only
+            self.stage2_penalize_tan_motion = configs.stage2_penalize_tan_motion
+            self.balance_use_normalized = configs.balance_use_normalized
+            self.stage2_equal_force_cost = configs.stage2_equal_force_cost
+            self.stage2_ctrl_tan_force = configs.stage2_ctrl_tan_force
+            self.stage2_tan_force_constraint = configs.stage2_tan_force_constraint
+            self.stage2_increase_force = configs.stage2_increase_force
+            self.Kp_scale = configs.Kp_scale
+            self.stage1_force_thres = configs.stage1_force_thres
+            self.Kr_use_two_jaco_a = configs.Kr_use_two_jaco_a
 
-        # self.Ke = np.diag([10000, 1000, 1000])  # x-axis is the contact normal
+            self.Kp = np.diag(np.clip(self.robot.doa_kp, 0, 1e3)) * self.Kp_scale
+            self.Kp_inv = np.linalg.inv(self.Kp)
+
         self.Ke = np.diag([1e6, 1e6, 1e6])  # x-axis is the contact normal
-        self.Kp = np.diag(np.clip(self.robot.doa_kp, 0, 1e3))
-        self.Kp_inv = np.linalg.inv(self.Kp)
         self.balance_thres = 0.4
         self.mu = 0.3  # friction coef
-        self.stage1_force_thres = 0.2
         if "shadow" in self.robot.name:
             self.final_sum_force = 15.0
         elif "allegro" in self.robot.name:
@@ -68,34 +80,45 @@ class GraspController:
     def interplote_qpos(self, qpos1: np.array, qpos2: np.array, step: int) -> np.array:
         return np.linspace(qpos1, qpos2, step + 1)[1:]
 
-    def Ks(self, q_a, contacts):
-        """
-        Per contact.
-        """
-        self.robot_adaptor.compute_jaco_a(q_a=q_a)
+    def Ks(self, q_a, q_f, contacts):
         I3 = np.eye(3)
         hand_ndoa = self.robot.hand.n_doa
 
+        # compute J(q) and J(qd)
+        body_name_lst = []
         for i, contact in enumerate(contacts):
-            body_name = contact["body1_name"]
+            body_name_lst.append(contact["body1_name"])
+        self.robot_adaptor.compute_jaco_a(q_a)  # J(qd)
+        body_jaco_a_lst = [self.robot_adaptor.get_frame_jaco(frame_name=name, type="body") for name in body_name_lst]
+        self.robot_adaptor.compute_jaco_a(q_f)  # J(q)
+        body_jaco_f_lst = [self.robot_adaptor.get_frame_jaco(frame_name=name, type="body") for name in body_name_lst]
+
+        for i, contact in enumerate(contacts):
             cp_local = contact["contact_pos_local"].reshape(-1, 1)  # p_B in A
             cf_local = contact["contact_frame_local"].reshape(3, 3)  # R_B in A
-            body_jaco = self.robot_adaptor.get_frame_jaco(frame_name=body_name, type="body")  # J_A in A
             Trans = np.block([[I3, -skew(cp_local)]])
-
             # arm-hand
-            contact_jaco = cf_local.T @ Trans @ body_jaco  # J_B in B (translation part)
-            Kr_inv = contact_jaco @ self.Kp_inv @ contact_jaco.T
+            body_jaco_a = body_jaco_a_lst[i]
+            body_jaco_f = body_jaco_f_lst[i]
+            contact_jaco_a = cf_local.T @ Trans @ body_jaco_a  # J_B in B (translation part)
+            contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
+            if self.Kr_use_two_jaco_a:
+                Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_a.T
+            else:
+                Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_f.T
             Ks = np.linalg.inv(I3 + self.Ke @ Kr_inv) @ self.Ke  # in contact local frame
             contact["Ks"] = Ks
-            contact["jaco"] = contact_jaco
+            contact["jaco_a"] = contact_jaco_a
+            contact["jaco_f"] = contact_jaco_f
 
             # only hand
-            contact_jaco_h = contact_jaco[:, -hand_ndoa:]
-            Kr_h_inv = contact_jaco_h @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ contact_jaco_h.T
+            contact_jaco_ha = contact_jaco_a[:, -hand_ndoa:]
+            contact_jaco_hf = contact_jaco_f[:, -hand_ndoa:]
+            Kr_h_inv = contact_jaco_ha @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ contact_jaco_hf.T
             Ks_h = np.linalg.inv(I3 + self.Ke @ Kr_h_inv) @ self.Ke  # in contact local frame
             contact["Ks_h"] = Ks_h
-            contact["jaco_h"] = contact_jaco_h
+            contact["jaco_ha"] = contact_jaco_ha
+            contact["jaco_hf"] = contact_jaco_hf
 
             contacts[i] = contact
 
@@ -186,7 +209,7 @@ class GraspController:
 
         def force_magnitude_constraint(x):
             cf = x.copy().reshape(-1, 3)
-            constraint = np.sum(cf[:, 0]) - gamma  # >= 0
+            constraint = np.sum(cf[:, 0]) - gamma  # == 0
             return constraint.reshape(-1)
 
         def force_magnitude_constraint_grad(x):
@@ -197,7 +220,7 @@ class GraspController:
 
         constraints_list = [
             dict(type="ineq", fun=friction_cone_constraint, jac=friction_cone_constraint_grad),
-            dict(type="ineq", fun=force_magnitude_constraint, jac=force_magnitude_constraint_grad),
+            dict(type="eq", fun=force_magnitude_constraint, jac=force_magnitude_constraint_grad),
         ]
 
         bounds = [(0, 10), (-10, 10), (-10, 10)] * n_con
@@ -214,8 +237,12 @@ class GraspController:
 
         cf = res.x.reshape(-1)
 
-        normalized_wrench = self.compute_normalized_wrench(contact_G, cf)
-        metric = np.linalg.norm(normalized_wrench)
+        if self.balance_use_normalized:
+            normalized_wrench = self.compute_normalized_wrench(contact_G, cf)
+            metric = np.linalg.norm(normalized_wrench)
+        else:
+            wrench = (contact_G @ cf.reshape(-1, 1)).reshape(-1)
+            metric = np.linalg.norm(wrench)
 
         return metric, cf
 
@@ -224,6 +251,7 @@ class GraspController:
         stage,
         dt,
         curr_q_a,
+        curr_q_f,
         target_q_f,
         desired_sum_force,
         last_dq_a,
@@ -248,19 +276,19 @@ class GraspController:
             # compute grasp matrix
             contact_G = self.compute_grasp_matrix(ho_contacts) if grasp_matrix is None else grasp_matrix
             # compute Ks and contact jacobian
-            updated_contacts = self.Ks(q_a=curr_q_a, contacts=ho_contacts)
+            updated_contacts = self.Ks(q_a=curr_q_a, q_f=curr_q_f, contacts=ho_contacts)
             Ks_all = []
-            contact_jaco_all = []
+            contact_jaco_all = []  # J(qd)
             contact_force_all = []
             for _, contact in enumerate(updated_contacts):
-                jaco = contact["jaco"]
+                jaco_a = contact["jaco_a"]
                 if stage == 1 or (not self.stage2_Ks_hand_only):
                     Ks = contact["Ks"]
                 else:
                     Ks = contact["Ks_h"]
-                    jaco[:, :n_arm_dof] = 0
+                    jaco_a[:, :n_arm_dof] = 0
                 Ks_all.append(Ks)
-                contact_jaco_all.append(jaco)
+                contact_jaco_all.append(jaco_a)
                 contact_force_all.append(contact["contact_force"][:3])
             Ks_all = block_diag(*Ks_all)
             contact_jaco_all = np.concatenate(contact_jaco_all, axis=0)
@@ -288,6 +316,7 @@ class GraspController:
         w_cf = np.diag([0.0, 0.1, 0.1])
         w_cf = block_diag(*[w_cf for _ in range(n_con)])
         w_wrench = np.diag([1.0, 1, 1, 1, 1, 1])
+        w_ef = 0.01 * np.eye(n_con)
 
         if self.stage2_incontact_force_only and stage == 2 and n_con > 0:
             # in-contact joint, no position control
@@ -318,6 +347,7 @@ class GraspController:
             cost_wrench = 0
             cost_tan_motion = 0
             cost_tan_cf = 0
+            cost_ef = 0
             if b_contact and n_con > 0:
                 if stage == 1 or self.stage2_penalize_tan_motion:
                     # cost tangential motion (restrict the tangential motion of contacts)
@@ -331,10 +361,16 @@ class GraspController:
                     cost_wrench = wrench.T @ w_wrench @ wrench
 
                     # cost tangential force
-                    dcf = Ks_jaco @ dq_a.reshape(-1, 1)
-                    pred_next_cf = contact_force_all.reshape(-1, 1) + dcf
-                    self.err_cf = err_cf = cf.reshape(-1, 1) - pred_next_cf
-                    cost_tan_cf = err_cf.T @ w_cf @ err_cf
+                    if self.stage2_ctrl_tan_force:
+                        dcf = Ks_jaco @ dq_a.reshape(-1, 1)
+                        pred_next_cf = contact_force_all.reshape(-1, 1) + dcf
+                        self.err_cf = err_cf = cf.reshape(-1, 1) - pred_next_cf
+                        cost_tan_cf = err_cf.T @ w_cf @ err_cf
+
+                    if self.stage2_equal_force_cost:
+                        # cost equal force
+                        self.err_ef = err_ef = (cf.reshape(-1, 3)[:, 0] - desired_sum_force / n_con).reshape(-1, 1)
+                        cost_ef = err_ef.T @ w_ef @ err_ef
 
             cost_hb_pose = 0
             if stage == 1:
@@ -347,7 +383,16 @@ class GraspController:
                 self.err_hb_pose = err_hb_pose = np.concatenate([err_hb_pos, err_hb_ori], axis=0).reshape(-1, 1)  # 6D
                 cost_hb_pose = err_hb_pose.T @ w_hb_pose @ err_hb_pose
 
-            total_cost = cost_dqa + cost_ddqa + cost_q_hand + cost_wrench + cost_tan_motion + cost_tan_cf + cost_hb_pose
+            total_cost = (
+                cost_dqa
+                + cost_ddqa
+                + cost_q_hand
+                + cost_wrench
+                + cost_tan_motion
+                + cost_tan_cf
+                + cost_hb_pose
+                + cost_ef
+            )
             return total_cost.item()
 
         def jacobian(x):
@@ -383,12 +428,21 @@ class GraspController:
                     wrench = self.wrench
                     grad_cf = 2 * (contact_G.T @ w_wrench @ wrench)  # shape (n, 1)
                     grad[n_dof:] += grad_cf.reshape(-1)
-                    # grad of cost_tan_cf
-                    err_cf = self.err_cf
-                    grad_dqa = -2 * Ks_jaco.T @ w_cf @ err_cf  # shape: (n_dof, 1)
-                    grad_cf = 2 * w_cf @ err_cf  # shape: (n_con * 3, 1)
-                    grad[:n_dof] += grad_dqa.reshape(-1)
-                    grad[n_dof:] += grad_cf.reshape(-1)
+
+                    if self.stage2_ctrl_tan_force and (not self.stage2_tan_force_constraint):
+                        # grad of cost_tan_cf
+                        err_cf = self.err_cf
+                        grad_dqa = -2 * Ks_jaco.T @ w_cf @ err_cf  # shape: (n_dof, 1)
+                        grad_cf = 2 * w_cf @ err_cf  # shape: (n_con * 3, 1)
+                        grad[:n_dof] += grad_dqa.reshape(-1)
+                        grad[n_dof:] += grad_cf.reshape(-1)
+
+                    if self.stage2_equal_force_cost:
+                        # cost equal force
+                        err_ef = self.err_ef
+                        idx = np.arange(n_con) * 3 + 0  # index of normal force in each contact
+                        grad_ef = 2 * w_ef @ err_ef
+                        grad[n_dof + idx] += grad_ef.reshape(-1)
 
             if stage == 1:
                 # grad of cost_hb_pose
@@ -406,17 +460,37 @@ class GraspController:
             dcf = cf - contact_force_all
 
             err = dcf.reshape(-1, 1) - Ks_jaco @ dq_a.reshape(-1, 1)
-            constraint = err.reshape(-1, 3)[:, 0]  # only constrain the normal forces
+            if self.stage2_tan_force_constraint:
+                constraint = err.reshape(-1, 3)
+            else:
+                constraint = err.reshape(-1, 3)[:, 0]  # only constrain the normal forces
             return constraint.reshape(-1)  # == 0
 
         def contact_model_constraint_grad(x):
-            idx_normal = np.arange(0, n_con * 3, 3)
-            grad_cf = np.zeros((n_con, 3 * n_con))
-            grad_cf[np.arange(n_con), idx_normal] = 1.0
-            grad_dq_a = -Ks_jaco[idx_normal, :]
+            if self.stage2_tan_force_constraint:
+                grad_cf = np.eye(3 * n_con)
+                grad_dq_a = -Ks_jaco
+            else:
+                idx_normal = np.arange(0, n_con * 3, 3)
+                grad_cf = np.zeros((n_con, 3 * n_con))
+                grad_cf[np.arange(n_con), idx_normal] = 1.0
+                grad_dq_a = -Ks_jaco[idx_normal, :]
 
             jacobian = np.hstack([grad_dq_a, grad_cf])
             return jacobian  # shape: (n_contacts, x_dim)
+
+        def increase_normal_force_constraint(x):
+            dq_a = x[:n_dof].copy()
+            dcf = Ks_jaco @ dq_a.reshape(-1, 1)
+            constraint = dcf.reshape(-1, 3)[:, 0]
+            return constraint.reshape(-1)  # >= 0
+
+        def increase_normal_force_constraint_grad(x):
+            idx_normal = np.arange(0, n_con * 3, 3)
+            grad_dq_a = Ks_jaco[idx_normal, :]
+            grad_cf = np.zeros((n_con, 3 * n_con))
+            jacobian = np.hstack([grad_dq_a, grad_cf])
+            return jacobian
 
         def q_limits_constraint(x):
             dq_a = x[:n_dof].copy()
@@ -549,6 +623,14 @@ class GraspController:
                     dict(type="ineq", fun=friction_cone_constraint, jac=friction_cone_constraint_grad),
                     dict(type="eq", fun=force_magnitude_constraint, jac=force_magnitude_constraint_grad),
                 ]
+                if self.stage2_increase_force:
+                    constraints_list.append(
+                        dict(
+                            type="ineq",
+                            fun=increase_normal_force_constraint,
+                            jac=increase_normal_force_constraint_grad,
+                        )
+                    )
 
         bounds_dq = [(-q_step_max[i], q_step_max[i]) for i in range(q_step_max.shape[0])]
         bounds_cf = [(0, 100), (-50, 50), (-50, 50)] * n_con
@@ -574,11 +656,11 @@ class GraspController:
         res_var = res.x.reshape(-1)
         dq_a = res_var[:n_dof]
         cf = res_var[n_dof:]
-
         res = {}
         res["q_a"] = curr_q_a + dq_a
         res["dq_a"] = dq_a
         res["cf"] = cf
+
         return res
 
     def ctrl_opt4(

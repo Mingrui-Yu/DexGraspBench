@@ -58,8 +58,8 @@ def task_control_eval(configs):
     iterable_params = zip(input_path_lst, [configs] * len(input_path_lst))
     if configs.task.debug_viewer or configs.task.debug_render:
         for i, ip in enumerate(iterable_params):
-            # if i >= 0:
-            if i in [13, 20, 22, 31, 34, 35, 59, 60, 75, 77, 88]:
+            if i >= 0:
+                # if i in [13, 20, 22, 31, 34, 35, 59, 60, 75, 77, 88]:
                 print(f"grasp sample id: {i}")
                 safe_eval_one(ip)
     else:

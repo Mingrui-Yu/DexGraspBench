@@ -32,10 +32,28 @@ graspdata:
 
 # params of our controller
 control:
+  ablation_name: ""
+
   free_stage_switch: True
   stage2_after_full_path: True
+  desired_sum_force_as_traj: False
+  use_desired_sum_force_ub: False
+
+  stage2_incontact_force_only: True
+  stage2_Ks_hand_only: True
+  stage2_penalize_tan_motion: False
+  balance_use_normalized: True
+  stage1_force_thres: 0.2
+  
+  stage2_tan_force_constraint: False
+  stage2_ctrl_tan_force: True
+  
+  Kp_scale: 1.0
+  stage2_equal_force_cost: False
+  stage2_increase_force: True
+  Kr_use_two_jaco_a: False
 
 # evaluation setting
-offsets: [0.02] # unit: m
+offsets: [0.0] # unit: m
 
 

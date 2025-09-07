@@ -134,7 +134,10 @@ class BaseEval:
         input_dir = self.configs[self.configs.task.input_data]
         dirname = os.path.dirname(self.input_npy_path)
         filename = os.path.basename(self.input_npy_path)
-        new_dirname = os.path.join(dirname.replace(input_dir, self.configs.control_dir), self.method_name)
+        self.ablation_name = self.configs.task.control.ablation_name
+        method_name = f"{self.method_name}_{self.ablation_name}" if self.method_name == "ours" else self.method_name
+
+        new_dirname = os.path.join(dirname.replace(input_dir, self.configs.control_dir), f"{method_name}")
         new_filename = filename.replace(".npy", f"{file_suffix}.npy")
         save_path = os.path.join(new_dirname, new_filename)
         self.grasp_ctrl.save_recorded_data(path=save_path)
