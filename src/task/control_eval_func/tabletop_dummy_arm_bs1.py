@@ -43,7 +43,9 @@ class tabletopDummyArmBS1Eval(BaseEval):
             doa_names=doa_names,
             doa2dof_matrix=doa2dof_matrix,
         )
-        self.grasp_ctrl = GraspController(robot=self.robot, robot_adaptor=self.robot_adaptor)
+        self.grasp_ctrl = GraspController(
+            configs=self.configs.task.control, robot=self.robot, robot_adaptor=self.robot_adaptor
+        )
         self.dof_data2user_indices = [self.grasp_data["joint_names"].index(name) for name in dof_names]
 
     def _dof_data2user(self, q):
@@ -85,7 +87,7 @@ class tabletopDummyArmBS1Eval(BaseEval):
         elif "allegro" in self.robot.name:
             final_single_force = 3.0
         elif "leap" in self.robot.name:
-            final_single_force = 2.0
+            final_single_force = 2.5
         else:
             raise NotImplementedError
         max_steps = int(qpos_f_path.shape[0] * 1.2)
@@ -121,7 +123,7 @@ class tabletopDummyArmBS1Eval(BaseEval):
             hand_qpos_err = (target_hand_qpos_a - curr_hand_qpos_a).reshape(-1, 1)
             w_q = np.ones_like(curr_hand_qpos_a)
 
-            updated_contacts = self.grasp_ctrl.Ks(curr_qpos_a, ho_contacts)
+            updated_contacts = self.grasp_ctrl.Ks(curr_qpos_a, curr_qpos_f, ho_contacts)
             n_con = len(ho_contacts)
             if n_con:
                 Ks_all = []
@@ -129,7 +131,7 @@ class tabletopDummyArmBS1Eval(BaseEval):
                 contact_force_all = []
                 for _, contact in enumerate(updated_contacts):
                     Ks_all.append(contact["Ks"])
-                    contact_jaco_all.append(contact["jaco"])
+                    contact_jaco_all.append(contact["jaco_f"])
                     contact_force_all.append(contact["contact_force"][:3])
                 Ks_all = block_diag(*Ks_all)
                 contact_jaco_all = np.concatenate(contact_jaco_all, axis=0)
@@ -152,7 +154,11 @@ class tabletopDummyArmBS1Eval(BaseEval):
 
             delta_hand_q_a = w_q @ gain_q @ hand_qpos_err
             if n_con:
-                force_control_input = self.damped_pinv(contact_jaco_all) @ gain_f @ contact_force_err
+                Kp_inv = self.grasp_ctrl.Kp_inv[-hand_ndoa:, -hand_ndoa:]
+
+                # force_control_input = self.damped_pinv(contact_jaco_all) @ gain_f @ contact_force_err
+                force_control_input = 0.1 * Kp_inv @ contact_jaco_all.T @ contact_force_err
+
                 delta_hand_q_a += force_control_input
                 if b_debug:
                     print(f"pos_control_input: {(w_q @ gain_q @ hand_qpos_err).reshape(-1)}")

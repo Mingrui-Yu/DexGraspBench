@@ -39,7 +39,9 @@ class tabletopDummyArmBS2Eval(BaseEval):
             doa_names=doa_names,
             doa2dof_matrix=doa2dof_matrix,
         )
-        self.grasp_ctrl = GraspController(robot=self.robot, robot_adaptor=self.robot_adaptor)
+        self.grasp_ctrl = GraspController(
+            configs=self.configs.task.control, robot=self.robot, robot_adaptor=self.robot_adaptor
+        )
         self.dof_data2user_indices = [self.grasp_data["joint_names"].index(name) for name in dof_names]
 
     def _dof_data2user(self, q):
@@ -47,6 +49,9 @@ class tabletopDummyArmBS2Eval(BaseEval):
 
     def _simulate_under_extforce_details(self, pregrasp_qpos, grasp_qpos, squeeze_qpos):
         # self._initialize()
+
+        self.desired_sum_force_as_traj = self.configs.task.control.desired_sum_force_as_traj
+        self.use_desired_sum_force_ub = self.configs.task.control.use_desired_sum_force_ub
 
         # Pre-calculated parameters
         ctrl_freq = self.ctrl_freq
@@ -68,6 +73,7 @@ class tabletopDummyArmBS2Eval(BaseEval):
         qpos_f_path = np.concatenate([qpos_f_path_1, qpos_f_path_2], axis=0)
 
         final_sum_force = self.grasp_ctrl.final_sum_force
+        desired_sum_force_ub = final_sum_force + 0.2
         force_incre_step = final_sum_force / qpos_f_path_2.shape[0]
         last_dq_a = np.zeros((self.robot.n_doa))
         max_steps = qpos_f_path.shape[0] * 2
@@ -118,20 +124,27 @@ class tabletopDummyArmBS2Eval(BaseEval):
             if stage == 1:
                 desired_sum_force = max(self.grasp_ctrl.stage1_force_thres, curr_sum_force - force_incre_step)
             elif stage == 2:
-                desired_sum_force = min(curr_sum_force, final_sum_force) + force_incre_step
+                if self.desired_sum_force_as_traj:
+                    desired_sum_force = max(curr_sum_force, desired_sum_force) + force_incre_step
+                    if self.use_desired_sum_force_ub:
+                        desired_sum_force = min(desired_sum_force, desired_sum_force_ub)
+                else:
+                    desired_sum_force = min(curr_sum_force, final_sum_force) + force_incre_step
 
             t1 = time.time()
-            res = self.grasp_ctrl.ctrl_opt_bs2(
+            res = self.grasp_ctrl.ctrl_opt3(
                 stage=stage,
                 dt=action_dt,
                 curr_q_a=curr_qpos_a,
+                curr_q_f=curr_qpos_f,
                 target_q_f=target_qpos_f,
                 desired_sum_force=desired_sum_force,
                 last_dq_a=last_dq_a,
                 ho_contacts=ho_contacts,
                 grasp_matrix=grasp_matrix,
                 b_contact=True,
-                b_print_opt_details=False,
+                b_use_arm_motion=False,  # THE ONLY DIFFERENCE
+                b_print_opt_details=b_debug,
             )
             t_ctrl_opt = time.time() - t1
             opt_q_a = res["q_a"]
@@ -153,5 +166,8 @@ class tabletopDummyArmBS2Eval(BaseEval):
             self.grasp_ctrl.r_data["balance_metric"].append(balance_metric)
             self.grasp_ctrl.r_data["t_check_balance"].append(t_check_balance)
             self.grasp_ctrl.r_data["t_ctrl_opt"].append(t_ctrl_opt)
+            self.grasp_ctrl.r_data["stage"].append(stage)
+            self.grasp_ctrl.r_data["opt_res"].append(res)
+            self.grasp_ctrl.r_data["desired_sum_force"].append(desired_sum_force)
 
         return

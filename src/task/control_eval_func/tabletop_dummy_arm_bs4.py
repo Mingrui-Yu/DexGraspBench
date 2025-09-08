@@ -35,7 +35,9 @@ class tabletopDummyArmBS4Eval(BaseEval):
             doa_names=doa_names,
             doa2dof_matrix=doa2dof_matrix,
         )
-        self.grasp_ctrl = GraspController(robot=self.robot, robot_adaptor=self.robot_adaptor)
+        self.grasp_ctrl = GraspController(
+            configs=self.configs.task.control, robot=self.robot, robot_adaptor=self.robot_adaptor
+        )
         self.dof_data2user_indices = [self.grasp_data["joint_names"].index(name) for name in dof_names]
 
     def _dof_data2user(self, q):
@@ -128,13 +130,14 @@ class tabletopDummyArmBS4Eval(BaseEval):
                     stage=stage,
                     dt=action_dt,
                     curr_q_a=curr_qpos_a,
+                    curr_q_f=curr_qpos_f,
                     target_q_f=target_qpos_f,
                     desired_sum_force=desired_sum_force,
                     last_dq_a=last_dq_a,
                     ho_contacts=ho_contacts,
                     grasp_matrix=grasp_matrix,
                     b_contact=True,
-                    b_print_opt_details=False,
+                    b_print_opt_details=b_debug,
                 )
                 t_ctrl_opt = time.time() - t1
                 opt_q_a = res["q_a"]
@@ -150,7 +153,7 @@ class tabletopDummyArmBS4Eval(BaseEval):
                 hand_qpos_err = (target_hand_qpos_a - curr_hand_qpos_a).reshape(-1, 1)
                 w_q = np.ones_like(curr_hand_qpos_a)
 
-                updated_contacts = self.grasp_ctrl.Ks(curr_qpos_a, ho_contacts)
+                updated_contacts = self.grasp_ctrl.Ks(curr_qpos_a, curr_qpos_f, ho_contacts)
                 desired_sum_force = min(curr_sum_force, final_sum_force) + force_incre_step
                 if n_con > 0:
                     res = self.grasp_ctrl.ctrl_opt_bs4(
@@ -172,7 +175,7 @@ class tabletopDummyArmBS4Eval(BaseEval):
                     contact_force_all = []
                     for _, contact in enumerate(updated_contacts):
                         Ks_all.append(contact["Ks_h"])
-                        contact_jaco_all.append(contact["jaco_h"])
+                        contact_jaco_all.append(contact["jaco_hf"])
                         contact_force_all.append(contact["contact_force"][:3])
                     Ks_all = block_diag(*Ks_all)
                     contact_jaco_all = np.concatenate(contact_jaco_all, axis=0)
@@ -194,8 +197,8 @@ class tabletopDummyArmBS4Eval(BaseEval):
                     Kp_inv = self.grasp_ctrl.Kp_inv[-hand_ndoa:, -hand_ndoa:]
                     if b_debug:
                         print("Ks_jaco @ Kp_inv_JT: ", np.diag(Ks_jaco @ Kp_inv @ contact_jaco_all.T))
-                    force_control_input = 1.0 * self.damped_pinv(Ks_jaco) @ contact_force_err
-                    # force_control_input = 1.0 * Kp_inv @ contact_jaco_all.T @ contact_force_err
+                    # force_control_input = 1.0 * self.damped_pinv(Ks_jaco) @ contact_force_err
+                    force_control_input = 1.0 * Kp_inv @ contact_jaco_all.T @ contact_force_err
 
                     delta_hand_q_a += force_control_input
                     # if b_debug:

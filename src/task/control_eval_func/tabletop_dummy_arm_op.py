@@ -30,8 +30,9 @@ class tabletopDummyArmOpEval(BaseEval):
             doa_names=doa_names,
             doa2dof_matrix=doa2dof_matrix,
         )
-        self.grasp_ctrl = GraspController(robot=self.robot, robot_adaptor=self.robot_adaptor)
-
+        self.grasp_ctrl = GraspController(
+            configs=self.configs.task.control, robot=self.robot, robot_adaptor=self.robot_adaptor
+        )
         self.dof_data2user_indices = [self.grasp_data["joint_names"].index(name) for name in dof_names]
 
     def _dof_data2user(self, q):
