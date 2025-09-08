@@ -156,8 +156,9 @@ class tabletopDummyArmBS1Eval(BaseEval):
             if n_con:
                 Kp_inv = self.grasp_ctrl.Kp_inv[-hand_ndoa:, -hand_ndoa:]
 
+                gain = min(0.8, 1.0 / (len(qpos_f_path) - waypoint_idx))  # step size
+                force_control_input = gain * Kp_inv @ contact_jaco_all.T @ contact_force_err
                 # force_control_input = self.damped_pinv(contact_jaco_all) @ gain_f @ contact_force_err
-                force_control_input = 0.1 * Kp_inv @ contact_jaco_all.T @ contact_force_err
 
                 delta_hand_q_a += force_control_input
                 if b_debug:

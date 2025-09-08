@@ -24,6 +24,8 @@ def safe_eval_one(params):
             eval_func_name = f"{configs.setting}DummyArmBS3Eval"
         elif configs.task.method == "bs4":
             eval_func_name = f"{configs.setting}DummyArmBS4Eval"
+        elif configs.task.method == "bs5":
+            eval_func_name = f"{configs.setting}DummyArmBS5Eval"
         else:
             raise NotImplementedError()
         eval(eval_func_name)(input_npy_path, configs).run()

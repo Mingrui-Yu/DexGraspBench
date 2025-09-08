@@ -4,6 +4,7 @@ import time
 import copy
 import warnings
 import numpy as np
+from scipy.linalg import block_diag
 
 from .base import BaseEval
 from util.robots.base import RobotFactory, Robot, ArmHand
@@ -14,9 +15,9 @@ from util.grasp_controller import GraspController
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-class tabletopDummyArmBS3Eval(BaseEval):
+class tabletopDummyArmBS5Eval(BaseEval):
     def _initialize(self):
-        self.method_name = "bs3"
+        self.method_name = "bs5"
         robot_name = self.configs.hand_name
         robot_prefix = "rh_" if "allegro" not in robot_name else ""
         robot: ArmHand = RobotFactory.create_robot(robot_type=robot_name, prefix=robot_prefix)
@@ -42,6 +43,12 @@ class tabletopDummyArmBS3Eval(BaseEval):
     def _dof_data2user(self, q):
         return q[..., self.dof_data2user_indices].copy()
 
+    def damped_pinv(self, J):
+        lambd = 1.0
+        I_mat = np.eye(J.shape[0])
+        J_inv = J.T @ np.linalg.inv(J @ J.T + lambd**2 * I_mat)
+        return J_inv
+
     def _simulate_under_extforce_details(self, pregrasp_qpos, grasp_qpos, squeeze_qpos):
         # self._initialize()
 
@@ -50,6 +57,8 @@ class tabletopDummyArmBS3Eval(BaseEval):
         action_dt = self.action_dt
         sim_step_per_action = self.sim_step_per_action
         b_debug = self.configs.task.debug_viewer
+        arm_ndoa = self.robot.arm.n_doa
+        hand_ndoa = self.robot.hand.n_doa
 
         # initialize actuated qpos
         curr_qpos_f = self.mj_ho.get_qpos_f(names=self.robot.dof_names)
@@ -64,18 +73,13 @@ class tabletopDummyArmBS3Eval(BaseEval):
         qpos_f_path_2 = self.grasp_ctrl.interplote_qpos(grasp_qpos_f, squeeze_qpos_f, step=ctrl_freq * 2)
         qpos_f_path = np.concatenate([qpos_f_path_1, qpos_f_path_2], axis=0)
 
-        if "shadow" in self.robot.name:
-            final_single_force = 5.0
-        elif "allegro" in self.robot.name:
-            final_single_force = 3.0
-        elif "leap" in self.robot.name:
-            final_single_force = 2.5
-        else:
-            raise NotImplementedError
-
-        force_incre_step = final_single_force / qpos_f_path_2.shape[0]
+        final_sum_force = self.grasp_ctrl.final_sum_force
+        force_incre_step = final_sum_force / qpos_f_path_2.shape[0]
         last_dq_a = np.zeros((self.robot.n_doa))
-        max_steps = int(qpos_f_path.shape[0] * 1.2)
+        max_steps = qpos_f_path.shape[0] * 2
+
+        last_n_con = 0
+        last_stage = 1
         stage = 1
         step = 0
         waypoint_idx = 0
@@ -89,12 +93,13 @@ class tabletopDummyArmBS3Eval(BaseEval):
             obj_pose = self.mj_ho.get_obj_pose()  # pos + quat(w,x,y,z)
 
             # compute some variables
+            n_con = len(ho_contacts)
             contact_force_all = np.array([contact["contact_force"][:3] for contact in ho_contacts]).reshape(-1, 3)
             curr_sum_force = np.sum(contact_force_all[:, 0])
             grasp_matrix = self.grasp_ctrl.compute_grasp_matrix(ho_contacts)
 
             # terminal criteria
-            if step >= qpos_f_path.shape[0] and np.all(contact_force_all[:, 0] > final_single_force):
+            if step >= qpos_f_path.shape[0] and curr_sum_force > final_sum_force:
                 break
 
             t1 = time.time()
@@ -120,34 +125,98 @@ class tabletopDummyArmBS3Eval(BaseEval):
             elif self.configs.task.control.free_stage_switch:  # if enables free_stage_switch, it allows back to stage 1
                 stage = 1
 
+            # re-allocate the contact forces
+            if stage == 2 and n_con > 0 and (last_stage == 1 or last_n_con != n_con):
+                res = self.grasp_ctrl.ctrl_opt_bs4(
+                    stage=stage,
+                    dt=action_dt,
+                    curr_q_a=curr_qpos_a,
+                    target_q_f=target_qpos_f,
+                    desired_sum_force=final_sum_force,  # Use the desired final sum force
+                    last_dq_a=last_dq_a,
+                    ho_contacts=ho_contacts,
+                    grasp_matrix=grasp_matrix,
+                    b_contact=True,
+                    b_print_opt_details=b_debug,
+                )
+                opt_cf = res["cf"].reshape(-1, 3)
+
             if stage == 1:
                 desired_sum_force = max(self.grasp_ctrl.stage1_force_thres, curr_sum_force - force_incre_step)
-                desired_forces = None
-            elif stage == 2:
-                desired_sum_force = None
-                n_con = contact_force_all.shape[0]
-                final_desired_forces = np.tile(np.array([final_single_force, 0, 0]), [n_con, 1])
-                step_size = min(0.8, 1.0 / (len(qpos_f_path) - waypoint_idx))  # step size
-                desired_forces = contact_force_all + step_size * (final_desired_forces - contact_force_all)
+                t1 = time.time()
+                res = self.grasp_ctrl.ctrl_opt3(
+                    stage=stage,
+                    dt=action_dt,
+                    curr_q_a=curr_qpos_a,
+                    curr_q_f=curr_qpos_f,
+                    target_q_f=target_qpos_f,
+                    desired_sum_force=desired_sum_force,
+                    last_dq_a=last_dq_a,
+                    ho_contacts=ho_contacts,
+                    grasp_matrix=grasp_matrix,
+                    b_contact=True,
+                    b_print_opt_details=b_debug,
+                )
+                t_ctrl_opt = time.time() - t1
+                opt_q_a = res["q_a"]
+                last_dq_a = res["dq_a"]
 
-            t1 = time.time()
-            res = self.grasp_ctrl.ctrl_opt_bs3(
-                stage=stage,
-                dt=action_dt,
-                curr_q_a=curr_qpos_a,
-                curr_q_f=curr_qpos_f,
-                target_q_f=target_qpos_f,
-                desired_sum_force=desired_sum_force,
-                desired_forces=desired_forces,
-                last_dq_a=last_dq_a,
-                ho_contacts=ho_contacts,
-                grasp_matrix=grasp_matrix,
-                b_contact=True,
-                b_print_opt_details=b_debug,
-            )
-            t_ctrl_opt = time.time() - t1
-            opt_q_a = res["q_a"]
-            last_dq_a = res["dq_a"]
+            elif stage == 2:
+                t1 = time.time()
+                # compute qpos error
+                curr_arm_qpos_a = curr_qpos_a[:arm_ndoa]
+                curr_hand_qpos_a = curr_qpos_a[-hand_ndoa:]
+                target_qpos_a = self.robot_adaptor._dof2doa(target_qpos_f)
+                target_hand_qpos_a = target_qpos_a[-hand_ndoa:]
+                hand_qpos_err = (target_hand_qpos_a - curr_hand_qpos_a).reshape(-1, 1)
+                w_q = np.ones_like(curr_hand_qpos_a)
+
+                updated_contacts = self.grasp_ctrl.Ks(curr_qpos_a, curr_qpos_f, ho_contacts)
+                desired_sum_force = min(curr_sum_force, final_sum_force) + force_incre_step
+                if n_con > 0:
+                    Ks_all = []
+                    contact_jaco_all = []
+                    contact_force_all = []
+                    for _, contact in enumerate(updated_contacts):
+                        Ks_all.append(contact["Ks_h"])
+                        contact_jaco_all.append(contact["jaco_hf"])
+                        contact_force_all.append(contact["contact_force"][:3])
+                    Ks_all = block_diag(*Ks_all)
+                    contact_jaco_all = np.concatenate(contact_jaco_all, axis=0)
+                    contact_force_all = np.concatenate(contact_force_all, axis=0).reshape(-1, 1)
+                    Ks_jaco = Ks_all @ contact_jaco_all
+
+                    final_desired_forces = opt_cf.reshape(-1, 1)
+                    step_size = min(0.8, 1.0 / (len(qpos_f_path) - waypoint_idx))  # step size
+                    desired_forces = contact_force_all + step_size * (final_desired_forces - contact_force_all)
+
+                    contact_force_err = target_contact_force_all - contact_force_all
+                    in_contact_q_indices = np.any(contact_jaco_all != 0, axis=0)
+                    w_q[in_contact_q_indices] = 0
+                    if b_debug:
+                        print(f"in_contact_q_indices: {in_contact_q_indices}")
+
+                w_q = np.diag(w_q)
+                delta_hand_q_a = w_q @ hand_qpos_err
+                if n_con:
+                    Kp_inv = self.grasp_ctrl.Kp_inv[-hand_ndoa:, -hand_ndoa:]
+                    if b_debug:
+                        print("Ks_jaco @ Kp_inv_JT: ", np.diag(Ks_jaco @ Kp_inv @ contact_jaco_all.T))
+                    # force_control_input = 1.0 * self.damped_pinv(Ks_jaco) @ contact_force_err
+
+                    gain = min(0.8, 1.0 / (len(qpos_f_path) - waypoint_idx))  # step size
+                    force_control_input = gain * Kp_inv @ contact_jaco_all.T @ contact_force_err
+
+                    delta_hand_q_a += force_control_input
+                    if b_debug:
+                        print(f"pos_control_input: {(w_q @ hand_qpos_err).reshape(-1)}")
+                        print(f"force_control_input: {force_control_input.reshape(-1)}")
+
+                delta_hand_q_a = delta_hand_q_a.reshape(-1)
+                opt_hand_q_a = curr_hand_qpos_a + delta_hand_q_a
+                opt_q_a = np.concatenate([curr_arm_qpos_a, opt_hand_q_a], axis=0)
+                last_dq_a = np.concatenate([np.zeros_like(curr_arm_qpos_a), delta_hand_q_a], axis=0)
+                t_ctrl_opt = time.time() - t1
 
             assert sim_step_per_action % 5 == 0
             self.mj_ho.ctrl_qpos_a_with_interp(
@@ -156,6 +225,8 @@ class tabletopDummyArmBS3Eval(BaseEval):
 
             step += 1  # next step
             waypoint_idx = min(waypoint_idx + 1, len(qpos_f_path) - 1)
+            last_stage = stage
+            last_n_con = n_con
 
             self.grasp_ctrl.r_data["obj_pose"].append(obj_pose)
             self.grasp_ctrl.r_data["dof"].append(curr_qpos_f)

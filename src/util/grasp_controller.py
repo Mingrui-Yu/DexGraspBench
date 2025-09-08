@@ -847,8 +847,7 @@ class GraspController:
         w_cf = block_diag(*[w_cf for _ in range(n_con)])
 
         # desired forces of each contact
-        cf_d = np.zeros((n_con, 3))
-        cf_d[:, 0] = desired_forces  # normal
+        cf_d = desired_forces
 
         if stage == 2 and n_con > 0:
             contact_jaco_h = contact_jaco_all[:, -n_hand_dof:]

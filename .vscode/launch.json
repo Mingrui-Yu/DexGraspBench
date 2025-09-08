@@ -30,7 +30,7 @@
             // "args": ["setting=tabletop", "hand=shadow", "task=eval", "exp_name=learn", "task.max_num=100"],
             
             "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=control_eval", "exp_name=learn", 
-                     "task.method=bs4", "task.offsets=[0.00]", "task.input_data=grasp_dir", "task.debug_viewer=True"],
+                     "task.method=bs5", "task.offsets=[0.00]", "task.input_data=grasp_dir", "task.debug_viewer=True"],
             // "args": ["setting=tabletop", "hand=dummy_arm_leap_tac3d", "task=control_stat", "exp_name=learn", 
             //          "task.method=ours"],
 

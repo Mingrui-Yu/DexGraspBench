@@ -30,7 +30,7 @@ def main():
     setting_lst = ["dist_0"]
     hand_lst = ["shadow", "allegro", "leap_tac3d"]
     # method_lst = ["ours", "op", "bs1", "bs2", "bs3", "bs4"]
-    method_lst = ["op", "bs1", "bs2", "bs3", "bs4"]
+    method_lst = ["op", "bs1", "bs2", "bs3", "bs4", "bs5", "ours_ab2"]
     # method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5"]
 
     n_valid = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))

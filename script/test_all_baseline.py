@@ -3,10 +3,10 @@ import subprocess
 # Parameters
 hands = ["dummy_arm_shadow", "dummy_arm_allegro", "dummy_arm_leap_tac3d"]
 # hands = ["dummy_arm_leap_tac3d"]
-methods = ["bs1"]
+methods = ["op", "bs1", "bs2", "bs3", "bs4"]
 
-offsets = "[0.00]"  # unit: m
-setting_names = ["dist_0"]
+offsets = "[0.02]"  # unit: m
+setting_names = ["dist_2"]
 
 
 for hand in hands:
