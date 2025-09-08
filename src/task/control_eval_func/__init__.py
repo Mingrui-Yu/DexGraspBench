@@ -4,3 +4,4 @@ from .tabletop_dummy_arm_bs1 import tabletopDummyArmBS1Eval
 from .tabletop_dummy_arm_bs2 import tabletopDummyArmBS2Eval
 from .tabletop_dummy_arm_bs3 import tabletopDummyArmBS3Eval
 from .tabletop_dummy_arm_bs4 import tabletopDummyArmBS4Eval
+from .tabletop_dummy_arm_bs5 import tabletopDummyArmBS5Eval

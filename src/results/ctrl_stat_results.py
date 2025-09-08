@@ -31,8 +31,13 @@ def main():
     hand_lst = ["shadow", "allegro", "leap_tac3d"]
     # hand_lst = ["shadow"]
     # method_lst = ["ours", "op", "bs1", "bs2", "bs3", "bs4"]
+<<<<<<< HEAD
     # method_lst = ["op", "bs1", "bs2", "bs3", "bs4", "ours_ab2"]
     method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5"]
+=======
+    method_lst = ["op", "bs1", "bs2", "bs3", "bs4", "bs5", "ours_ab2"]
+    # method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5"]
+>>>>>>> 9a36da473dfa35f621267131731067d1cb558484
 
     n_valid = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))
     success_rate = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))
