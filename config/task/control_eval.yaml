@@ -48,7 +48,7 @@ control:
 
   stage2_tan_force_constraint: False
   stage2_ctrl_tan_force: True
-
+  
   stage2_increase_force: False # cartesian-space
   stage2_joint_increase_force: False # tau = Kp * delta q
   stage2_joint_increase_force_2: False # tau = J.T * F
