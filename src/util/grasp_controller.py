@@ -45,22 +45,45 @@ class GraspController:
 
         # hyper-parameters
         if configs:
+            ab_name = configs.ablation_name
+            if ab_name not in configs:
+                raise ValueError
+
+            # replace the parameters from the ablation setting
+            for key in configs[ab_name]:
+                configs[key] = configs[ab_name][key]
+
             self.stage2_incontact_force_only = configs.stage2_incontact_force_only
             self.stage2_Ks_hand_only = configs.stage2_Ks_hand_only
             self.stage2_penalize_tan_motion = configs.stage2_penalize_tan_motion
             self.balance_use_normalized = configs.balance_use_normalized
+
             self.stage2_equal_force_cost = configs.stage2_equal_force_cost
+            self.stage2_equal_joint_force_cost = configs.stage2_equal_joint_force_cost
+            flags = [self.stage2_equal_force_cost, self.stage2_equal_joint_force_cost]
+            if sum(flags) > 1:
+                raise ValueError("Only one of the stage2_equal_force_cost flags can be True at the same time.")
+
             self.stage2_ctrl_tan_force = configs.stage2_ctrl_tan_force
             self.stage2_tan_force_constraint = configs.stage2_tan_force_constraint
+
             self.stage2_increase_force = configs.stage2_increase_force
+            self.stage2_joint_increase_force = configs.stage2_joint_increase_force
+            self.stage2_joint_increase_force_2 = configs.stage2_joint_increase_force_2
+            flags = [self.stage2_increase_force, self.stage2_joint_increase_force, self.stage2_joint_increase_force_2]
+            if sum(flags) > 1:
+                raise ValueError("Only one of the stage2_increase_force flags can be True at the same time.")
+
+            self.Ke_scalar = configs.Ke_scalar
             self.Kp_scale = configs.Kp_scale
             self.stage1_force_thres = configs.stage1_force_thres
             self.Kr_use_two_jaco_a = configs.Kr_use_two_jaco_a
+            self.use_coupling = configs.use_coupling
 
             self.Kp = np.diag(np.clip(self.robot.doa_kp, 0, 1e3)) * self.Kp_scale
             self.Kp_inv = np.linalg.inv(self.Kp)
+            self.Ke = np.diag([self.Ke_scalar, self.Ke_scalar, self.Ke_scalar])  # x-axis is the contact normal
 
-        self.Ke = np.diag([1e6, 1e6, 1e6])  # x-axis is the contact normal
         self.balance_thres = 0.4
         self.mu = 0.3  # friction coef
         if "shadow" in self.robot.name:
@@ -293,7 +316,18 @@ class GraspController:
             Ks_all = block_diag(*Ks_all)
             contact_jaco_all = np.concatenate(contact_jaco_all, axis=0)
             contact_force_all = np.concatenate(contact_force_all, axis=0)
-            Ks_jaco = Ks_all @ contact_jaco_all
+            if self.use_coupling and n_con > 1:
+                K_coup = (
+                    Ks_all
+                    + Ks_all
+                    @ contact_G.T
+                    @ np.linalg.pinv(contact_G @ Ks_all @ contact_G.T, rcond=1e-3)
+                    @ contact_G
+                    @ Ks_all
+                )
+                Ks_jaco = K_coup @ contact_jaco_all
+            else:
+                Ks_jaco = Ks_all @ contact_jaco_all
         else:
             contact_force_all = np.zeros((0))
 
@@ -317,12 +351,16 @@ class GraspController:
         w_cf = block_diag(*[w_cf for _ in range(n_con)])
         w_wrench = np.diag([1.0, 1, 1, 1, 1, 1])
         w_ef = 0.01 * np.eye(n_con)
+        w_efj = 0.01 * np.eye(n_hand_dof)
 
-        if self.stage2_incontact_force_only and stage == 2 and n_con > 0:
-            # in-contact joint, no position control
+        q_f2a_direction = np.sign(curr_q_a - curr_q_f)
+        if stage == 2 and n_con > 0:
+            # in_contact_q_indices = np.any(contact_jaco_all != 0, axis=0)
             contact_jaco_h = contact_jaco_all[:, -n_hand_dof:]
-            in_contact_q_indices = np.any(contact_jaco_h != 0, axis=0)
-            w_q_hand[in_contact_q_indices, in_contact_q_indices] = 0
+            in_contact_qh_indices = np.any(contact_jaco_h != 0, axis=0)
+            if self.stage2_incontact_force_only:
+                # in-contact joint, no position control
+                w_q_hand[in_contact_qh_indices, in_contact_qh_indices] = 0
 
         def objective(x):
             dq_a = x[:n_dof].copy()
@@ -367,10 +405,15 @@ class GraspController:
                         self.err_cf = err_cf = cf.reshape(-1, 1) - pred_next_cf
                         cost_tan_cf = err_cf.T @ w_cf @ err_cf
 
+                    # cost equal force
                     if self.stage2_equal_force_cost:
-                        # cost equal force
                         self.err_ef = err_ef = (cf.reshape(-1, 3)[:, 0] - desired_sum_force / n_con).reshape(-1, 1)
                         cost_ef = err_ef.T @ w_ef @ err_ef
+                    elif self.stage2_equal_joint_force_cost:
+                        idx_normal = np.arange(0, n_con * 3, 3)
+                        J_n = contact_jaco_h[idx_normal, :]
+                        self.err_ef = tau_n = J_n.T @ cf.reshape(-1, 3)[:, 0].reshape(-1, 1)
+                        cost_ef = tau_n.T @ w_efj @ tau_n
 
             cost_hb_pose = 0
             if stage == 1:
@@ -443,6 +486,12 @@ class GraspController:
                         idx = np.arange(n_con) * 3 + 0  # index of normal force in each contact
                         grad_ef = 2 * w_ef @ err_ef
                         grad[n_dof + idx] += grad_ef.reshape(-1)
+                    elif self.stage2_equal_joint_force_cost:
+                        err_ef = self.err_ef
+                        idx = np.arange(n_con) * 3 + 0
+                        J_n = contact_jaco_h[idx, :]
+                        grad_ef = (2 * J_n @ w_efj @ err_ef).flatten()
+                        grad[n_dof + idx] += grad_ef.reshape(-1)
 
             if stage == 1:
                 # grad of cost_hb_pose
@@ -478,6 +527,45 @@ class GraspController:
 
             jacobian = np.hstack([grad_dq_a, grad_cf])
             return jacobian  # shape: (n_contacts, x_dim)
+
+        def increase_joint_constraint(x):
+            dq_a = x[n_arm_dof:n_dof].copy()  # only the hand joints
+            constraint = q_f2a_direction[-n_hand_dof:] * dq_a
+            constraint[~in_contact_qh_indices] = 0  # ignore the non-contact joints
+            return constraint.reshape(-1)  # >= 0
+
+        def increase_joint_constraint_grad(x):
+            grad_dq_a = np.zeros((n_hand_dof, n_dof))
+            hand_indices = np.arange(n_hand_dof) + n_arm_dof
+            grad_dq_a[np.arange(n_hand_dof), hand_indices] = q_f2a_direction[-n_hand_dof:]
+            grad_dq_a[~in_contact_qh_indices, :] = 0
+
+            grad_cf = np.zeros((n_hand_dof, 3 * n_con))
+            jacobian = np.hstack([grad_dq_a, grad_cf])
+            return jacobian  # shape: (n_hand_dof, n_dof + 3*n_con)
+
+        def increase_joint_2_constraint(x):
+            cf = x[n_dof:].copy()
+            dcf = cf - contact_force_all
+
+            idx_normal = np.arange(0, n_con * 3, 3)
+            J_n = contact_jaco_h[idx_normal, :]
+            dtau_n = J_n.T @ dcf.reshape(-1, 3)[:, 0].reshape(-1, 1)
+
+            constraint = np.diag(q_f2a_direction[-n_hand_dof:]) @ dtau_n
+            return constraint.reshape(-1)  # >= 0
+
+        def increase_joint_2_constraint_grad(x):
+            idx_normal = np.arange(0, n_con * 3, 3)
+            J_n = contact_jaco_h[idx_normal, :]  # (n_con, n_hand_dof)
+            # grad wrt dq_a: zero
+            grad_dq_a = np.zeros((n_hand_dof, n_dof))
+            # grad wrt cf
+            grad_cf = np.zeros((n_hand_dof, 3 * n_con))
+            grad_cf[:, idx_normal] = np.diag(q_f2a_direction[-n_hand_dof:]) @ J_n.T
+            # full jacobian
+            jacobian = np.hstack([grad_dq_a, grad_cf])  # shape: (n_hand_dof, n_dof + 3*n_con)
+            return jacobian
 
         def increase_normal_force_constraint(x):
             dq_a = x[:n_dof].copy()
@@ -626,10 +714,16 @@ class GraspController:
                 if self.stage2_increase_force:
                     constraints_list.append(
                         dict(
-                            type="ineq",
-                            fun=increase_normal_force_constraint,
-                            jac=increase_normal_force_constraint_grad,
+                            type="ineq", fun=increase_normal_force_constraint, jac=increase_normal_force_constraint_grad
                         )
+                    )
+                elif self.stage2_joint_increase_force:
+                    constraints_list.append(
+                        dict(type="ineq", fun=increase_joint_constraint, jac=increase_joint_constraint_grad)
+                    )
+                elif self.stage2_joint_increase_force_2:
+                    constraints_list.append(
+                        dict(type="ineq", fun=increase_joint_2_constraint, jac=increase_joint_2_constraint_grad)
                     )
 
         bounds_dq = [(-q_step_max[i], q_step_max[i]) for i in range(q_step_max.shape[0])]

@@ -32,26 +32,87 @@ graspdata:
 
 # params of our controller
 control:
-  ablation_name: ""
+  ablation_name: "ab2" # 'ab0' to 'abx'
 
-  free_stage_switch: True
-  stage2_after_full_path: True
-  desired_sum_force_as_traj: False
-  use_desired_sum_force_ub: False
+  free_stage_switch: True # fixed
+  stage2_after_full_path: True # fixed
+  desired_sum_force_as_traj: True # fixed
+  use_desired_sum_force_ub: True # fixed
+  stage2_incontact_force_only: True # fixed
+  stage2_penalize_tan_motion: False # fixed
+  balance_use_normalized: True # fixed
+  stage1_force_thres: 0.2 # fixed
+  Kr_use_two_jaco_a: False # fixed
+  stage2_Ks_hand_only: True # fixed
+  Kp_scale: 1.0 # fixed
 
-  stage2_incontact_force_only: True
-  stage2_Ks_hand_only: True
-  stage2_penalize_tan_motion: False
-  balance_use_normalized: True
-  stage1_force_thres: 0.2
-  
   stage2_tan_force_constraint: False
   stage2_ctrl_tan_force: True
+
+  stage2_increase_force: False # cartesian-space
+  stage2_joint_increase_force: False # tau = Kp * delta q
+  stage2_joint_increase_force_2: False # tau = J.T * F
   
-  Kp_scale: 1.0
-  stage2_equal_force_cost: False
-  stage2_increase_force: True
-  Kr_use_two_jaco_a: False
+  stage2_equal_force_cost: False # cartesian-space
+  stage2_equal_joint_force_cost: True
+  
+  Ke_scalar: 1e5 # approximate in mujoco: 1e5-1e6 (GPT)
+  use_coupling: True
+
+  ab0: # no consideration of tan force
+    stage2_tan_force_constraint: False
+    stage2_ctrl_tan_force: False
+
+    stage2_increase_force: False
+    stage2_equal_joint_force_cost: True
+    Ke_scalar: 1e5
+    use_coupling: True
+
+  ab1: # strictly consider tan force
+    stage2_tan_force_constraint: True
+    stage2_ctrl_tan_force: False
+
+    stage2_increase_force: False
+    stage2_equal_joint_force_cost: True
+    Ke_scalar: 1e5
+    use_coupling: True
+
+  ab2: # softly consider tan force
+    stage2_tan_force_constraint: False
+    stage2_ctrl_tan_force: True
+
+    stage2_increase_force: False
+    stage2_equal_joint_force_cost: True
+    Ke_scalar: 1e5
+    use_coupling: True
+
+  ab3: # no equal joint force cost
+    stage2_tan_force_constraint: False
+    stage2_ctrl_tan_force: True
+
+    stage2_increase_force: False
+    stage2_equal_joint_force_cost: False
+    Ke_scalar: 1e5
+    use_coupling: True
+
+  ab4: # no use_coupling
+    stage2_tan_force_constraint: False
+    stage2_ctrl_tan_force: True
+
+    stage2_increase_force: False
+    stage2_equal_joint_force_cost: True
+    Ke_scalar: 1e5
+    use_coupling: False
+
+  ab5: # add stage2_increase_force
+    stage2_tan_force_constraint: False
+    stage2_ctrl_tan_force: True
+
+    stage2_increase_force: True
+    stage2_equal_joint_force_cost: True
+    Ke_scalar: 1e5
+    use_coupling: True
+  
 
 # evaluation setting
 offsets: [0.0] # unit: m

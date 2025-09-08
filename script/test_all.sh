@@ -14,7 +14,7 @@ setting_names=("dist_0")
 # control_eval
 for hand in "${hands[@]}"; do
   for method in "${methods[@]}"; do
-    python src/main.py setting=tabletop hand=$hand task=control_eval exp_name=learn task.method=$method task.control.ablation_name=1 task.offsets=$offsets task.input_data=grasp_dir task.debug_viewer=False
+    python src/main.py setting=tabletop hand=$hand task=control_eval exp_name=learn task.method=$method task.control.ablation_name=ab2 task.offsets=$offsets task.input_data=grasp_dir task.debug_viewer=False
   done
 done
 
@@ -22,7 +22,7 @@ done
 for setting in "${setting_names[@]}"; do
   for hand in "${hands[@]}"; do
     for method in "${methods[@]}"; do
-      python src/main.py setting=tabletop hand=$hand task=control_stat exp_name=learn task.method=$method task.ablation_name=1 task.setting_name=$setting
+      python src/main.py setting=tabletop hand=$hand task=control_stat exp_name=learn task.method=$method task.ablation_name=ab2 task.setting_name=$setting
     done
   done
 done
