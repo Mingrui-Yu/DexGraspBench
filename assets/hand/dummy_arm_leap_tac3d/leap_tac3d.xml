@@ -1,5 +1,5 @@
 <mujoco model="leap_hand">
-  <compiler angle="radian" meshdir="/home/mingrui/mingrui/research/adaptive_grasping_2/DexGraspBench/assets/hand/leap_tac3d" 
+  <compiler angle="radian" meshdir="../../../assets/hand/leap_tac3d" 
             autolimits="true"/>
 
   <option cone="elliptic" impratio="10"  gravity="0 0 0" />

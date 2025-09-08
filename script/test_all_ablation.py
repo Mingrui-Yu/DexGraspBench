@@ -2,12 +2,12 @@ import subprocess
 
 # Parameters
 hands = ["dummy_arm_shadow", "dummy_arm_allegro", "dummy_arm_leap_tac3d"]
+# hands = ["dummy_arm_leap_tac3d"]
 methods = ["ours"]  # can only be 'ours'
 ablation_names = ["ab0", "ab1", "ab2", "ab3", "ab4", "ab5"]
 
 offsets = "[0.02]"  # unit: m
 setting_names = ["dist_2"]
-
 
 for hand in hands:
     for method in methods:
