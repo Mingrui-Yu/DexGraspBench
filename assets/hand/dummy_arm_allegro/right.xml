@@ -1,6 +1,6 @@
 <mujoco model="allegro_right">
   <compiler angle="radian" 
-    meshdir="/home/mingrui/mingrui/research/adaptive_grasping_2/DexGraspBench/third_party/mujoco_menagerie/wonik_allegro/assets" autolimits="true"
+    meshdir="../../../third_party/mujoco_menagerie/wonik_allegro/assets" autolimits="true"
     />
 
   <option cone="elliptic" impratio="10" gravity="0 0 0"  />
