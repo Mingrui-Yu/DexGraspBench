@@ -39,14 +39,46 @@ class MjHO:
             self.spec.add_texture(
                 type=mujoco.mjtTexture.mjTEXTURE_SKYBOX,
                 builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
-                rgb1=[0.3, 0.5, 0.7],
-                rgb2=[0.3, 0.5, 0.7],
+                rgb1=[1.0, 1.0, 1.0],
+                rgb2=[1.0, 1.0, 1.0],
                 width=512,
                 height=512,
             )
+            # self.spec.add_texture(
+            #     type=mujoco.mjtTexture.mjTEXTURE_SKYBOX,
+            #     builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
+            #     rgb1=[0.3, 0.5, 0.7],
+            #     rgb2=[0.3, 0.5, 0.7],
+            #     width=512,
+            #     height=512,
+            # )
+            # self.spec.worldbody.add_light(
+            #     name="spotlight",
+            #     pos=[0, -1, 2],
+            #     castshadow=False,
+            # )
             self.spec.worldbody.add_light(
-                name="spotlight",
-                pos=[0, -1, 2],
+                name="direction_light1",
+                pos=[0, 0, 1.5],
+                dir=[0, -1, -1],
+                castshadow=False,
+            )
+            self.spec.worldbody.add_light(
+                name="direction_light2",
+                pos=[0, 0, 1.5],
+                dir=[0, 1, -1],
+                castshadow=False,
+            )
+            self.spec.worldbody.add_light(
+                name="direction_light3",
+                pos=[0, 0, 1.5],
+                dir=[-1, 0, -1],
+                castshadow=False,
+            )
+            self.spec.worldbody.add_light(
+                name="direction_light4",
+                pos=[0, 0, 1.5],
+                dir=[1, 0, -1],
                 castshadow=False,
             )
             self.spec.worldbody.add_camera(name="closeup", pos=[0.75, 1.0, 1.0], xyaxes=[-1, 0, 0, 0, -1, 1])
@@ -90,6 +122,12 @@ class MjHO:
         self.debug_render = None
         if debug_viewer:
             self.debug_viewer = mujoco.viewer.launch_passive(self.model, self.data)
+
+            self.debug_viewer.cam.lookat[:] = [0.7, 0, 0.3]
+            self.debug_viewer.cam.distance = 0.55  # 相机与注视点的距离
+            self.debug_viewer.cam.azimuth = 0  # 水平旋转角度，单位度
+            self.debug_viewer.cam.elevation = -20  # 垂直旋转角度，单位度
+
             self.debug_viewer.sync()
             # pdb.set_trace()
 
@@ -97,10 +135,19 @@ class MjHO:
             self.debug_render = mujoco.Renderer(self.model, 480, 640)
             self.debug_options = mujoco.MjvOption()
             mujoco.mjv_defaultOption(self.debug_options)
-            self.debug_options.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = True
-            self.debug_options.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = True
+            self.debug_options.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = False
+            self.debug_options.flags[mujoco.mjtVisFlag.mjVIS_CONTACTFORCE] = False
             self.debug_options.flags[mujoco.mjtVisFlag.mjVIS_TRANSPARENT] = False
             self.debug_images = []
+
+            # 初始化视角参数
+            self.cam = mujoco.MjvCamera()
+            mujoco.mjv_defaultCamera(self.cam)
+            self.cam.lookat[:] = [0.7, 0, 0.2]  # 相机注视点 (x, y, z)
+            self.cam.distance = 0.4  # 相机与注视点的距离
+            self.cam.azimuth = 25  # 水平旋转角度，单位度
+            self.cam.elevation = 0  # 垂直旋转角度，单位度
+
         return
 
     def reset(self):
@@ -144,6 +191,7 @@ class MjHO:
                 type=mujoco.mjtGeom.mjGEOM_PLANE,
                 pos=[0, 0, 0],
                 size=[0, 0, 1.0],
+                rgba=[1.0, 1.0, 1.0, 0.0],  # transparent
             )
 
         obj_body = self.spec.worldbody.add_body(name="object")
@@ -172,6 +220,7 @@ class MjHO:
                 type=mujoco.mjtGeom.mjGEOM_MESH,
                 meshname=mesh_name,
                 density=obj_density,
+                rgba=[0.8, 0.8, 0.8, 1.0],  # white
             )
 
         return
@@ -369,7 +418,8 @@ class MjHO:
             mujoco.mj_step(self.model, self.data)
 
         if self.debug_render is not None:
-            self.debug_render.update_scene(self.data, "closeup", self.debug_options)
+            # self.debug_render.update_scene(self.data, "closeup", self.debug_options)
+            self.debug_render.update_scene(self.data, camera=self.cam, scene_option=self.debug_options)
             pixels = self.debug_render.render()
             self.debug_images.append(pixels)
 
