@@ -154,17 +154,17 @@ class MjHO:
             # self.cam.azimuth = 27.9
             # self.cam.elevation = -0
 
-            # # case of whether using arm motion: case 44
-            # self.cam.lookat[:] = [0.8, -0.03, 0.078]
-            # self.cam.distance = 0.27
-            # self.cam.azimuth = 97
-            # self.cam.elevation = -30
+            # case of whether using arm motion: case 44
+            self.cam.lookat[:] = [0.8, -0.03, 0.078]
+            self.cam.distance = 0.27
+            self.cam.azimuth = 97  # 70 / 97
+            self.cam.elevation = -30
 
-            # case of whether using arm motion: case 19
-            self.cam.lookat[:] = [0.75, 0.06, 0.10]
-            self.cam.distance = 0.30
-            self.cam.azimuth = -8.43
-            self.cam.elevation = -13.625
+            # # case of whether using arm motion: case 19
+            # self.cam.lookat[:] = [0.75, 0.06, 0.10]
+            # self.cam.distance = 0.30
+            # self.cam.azimuth = -8.43
+            # self.cam.elevation = -13.625
 
         return
 

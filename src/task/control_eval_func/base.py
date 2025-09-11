@@ -193,7 +193,7 @@ class BaseEval:
 
             for i in range(shifted_obj_poses.shape[0]):
                 if self.configs.task.debug_viewer or self.configs.task.debug_render:
-                    if i not in [6]:
+                    if i not in [0]:
                         continue
 
                 file_suffix = f"_dist_{str(int(100 * obj_offset_dist))}_pos_{i}"

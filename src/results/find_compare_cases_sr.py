@@ -32,7 +32,7 @@ def main():
     hand_lst = [
         "shadow",
     ]
-    method_lst = ["ours_ab2", "bs2", "op"]
+    method_lst = ["ours_ab2", "bs2"]
     # method_lst = ["ours_ab2", "op", "bs1", "bs2", "bs3"]
 
     failure_cases = {}
