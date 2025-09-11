@@ -27,17 +27,15 @@ def combine_mean_std(means, stds, counts):
 
 
 def main():
-    setting_lst = ["dist_0"]
+    setting_lst = ["dist_0", "dist_2"]
     hand_lst = ["shadow", "allegro", "leap_tac3d"]
-    # hand_lst = ["shadow"]
-    # method_lst = ["ours", "op", "bs1", "bs2", "bs3", "bs4"]
-<<<<<<< HEAD
-    # method_lst = ["op", "bs1", "bs2", "bs3", "bs4", "ours_ab2"]
+    # method_lst = ["op", "bs1", "bs2", "bs3", "ours_ab2"]
     method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5"]
-=======
-    method_lst = ["op", "bs1", "bs2", "bs3", "bs4", "bs5", "ours_ab2"]
-    # method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5"]
->>>>>>> 9a36da473dfa35f621267131731067d1cb558484
+
+    # hand_lst = ["shadow"]
+    # method_lst = ["ours_ab2"]
+
+    exp_name = "learn_large"
 
     n_valid = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))
     success_rate = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))
@@ -51,7 +49,7 @@ def main():
     for i_s, setting_name in enumerate(setting_lst):
         for i_h, hand in enumerate(hand_lst):
             for i_m, method in enumerate(method_lst):
-                file_path = f"output/learn_dummy_arm_{hand}/control_stat_res/{setting_name}_{method}.yaml"
+                file_path = f"output/{exp_name}_dummy_arm_{hand}/control_stat_res/{setting_name}_{method}.yaml"
                 with open(file_path, "r") as f:
                     results = yaml.safe_load(f)
 
@@ -106,10 +104,14 @@ def main():
             total_rot_mean, total_rot_std = combine_mean_std(
                 obj_rot_err_mean[i_s, :, i_m], obj_rot_err_std[i_s, :, i_m], n_valid[i_s, :, i_m]
             )
+            total_wrench_mean, total_wrench_std = combine_mean_std(
+                norm_wrench_mean[i_s, :, i_m], norm_wrench_std[i_s, :, i_m], n_valid[i_s, :, i_m]
+            )
 
-            print(f"{setting_name} {method} total success rate: {total_success_rate}")
+            print(f"{setting_name} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, :, i_m])}")
             print(f"{setting_name} {method} total obj pos err: {total_pos_mean} +- {total_pos_std}")
             print(f"{setting_name} {method} total obj rot err: {total_rot_mean} +- {total_rot_std}")
+            print(f"{setting_name} {method} total wrench err: {total_wrench_mean} +- {total_wrench_std}")
             print("------")
 
     print("-----------------------------------------------------")
@@ -126,10 +128,14 @@ def main():
                 total_rot_mean, total_rot_std = combine_mean_std(
                     obj_rot_err_mean[i_s, i_h, i_m], obj_rot_err_std[i_s, i_h, i_m], n_valid[i_s, i_h, i_m]
                 )
+                total_wrench_mean, total_wrench_std = combine_mean_std(
+                    norm_wrench_mean[i_s, i_h, i_m], norm_wrench_std[i_s, i_h, i_m], n_valid[i_s, i_h, i_m]
+                )
 
-                print(f"{setting_name} {hand} {method} total success rate: {total_success_rate}")
+                print(f"{setting_name} {hand} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, i_h, i_m])}")
                 print(f"{setting_name} {hand} {method} total obj pos err: {total_pos_mean} +- {total_pos_std}")
                 print(f"{setting_name} {hand} {method} total obj rot err: {total_rot_mean} +- {total_rot_std}")
+                print(f"{setting_name} {hand} {method} total wrench err: {total_wrench_mean} +- {total_wrench_std}")
                 print("------")
 
 

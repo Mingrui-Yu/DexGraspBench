@@ -237,7 +237,7 @@ def task_dummy_arm_qpos(configs):
     if len(input_path_lst) == 0:
         return
 
-    chunks = list(chunk_iterable(input_path_lst, 8192))
+    chunks = list(chunk_iterable(input_path_lst, 8192)) # batch size
 
     iterable_params = zip(chunks, [configs] * len(chunks))
 

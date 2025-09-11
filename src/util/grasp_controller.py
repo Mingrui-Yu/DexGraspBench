@@ -320,7 +320,7 @@ class GraspController:
             if self.use_coupling and n_con > 1:
                 K_coup = (
                     Ks_all
-                    + Ks_all
+                    - Ks_all
                     @ contact_G.T
                     @ np.linalg.pinv(contact_G @ Ks_all @ contact_G.T, rcond=1e-3)
                     @ contact_G
