@@ -107,6 +107,15 @@ control:
     stage2_equal_joint_force_cost: True
     use_coupling: True
     Ke_scalar: 1e5
+
+  ab6: # free_stage_switch is False
+    stage2_tan_force_constraint: False
+    stage2_ctrl_tan_force: True
+
+    stage2_increase_force: False
+    stage2_equal_joint_force_cost: True
+    Ke_scalar: 1e5
+    free_stage_switch: False
   
 
 # evaluation setting
