@@ -58,6 +58,7 @@ control:
   
   Ke_scalar: 1e5 # approximate in mujoco: 1e5-1e6 (GPT)
   use_coupling: False # must be False in theory
+  tan_motion_pen_weight: 1e3 # DEBUG
 
   ab0: # no consideration of tan force
     stage2_tan_force_constraint: False
@@ -99,14 +100,22 @@ control:
     stage2_equal_joint_force_cost: True
     Ke_scalar: 1e5
 
-  ab5: # coupling
+  ab6: # free_stage_switch is False
     stage2_tan_force_constraint: False
     stage2_ctrl_tan_force: True
+    stage2_increase_force: False
+    stage2_equal_joint_force_cost: True
+    Ke_scalar: 1e5
+    free_stage_switch: False
 
+  ab7: # coupling
+    stage2_tan_force_constraint: False
+    stage2_ctrl_tan_force: True
     stage2_increase_force: False
     stage2_equal_joint_force_cost: True
     use_coupling: True
     Ke_scalar: 1e5
+    tan_motion_pen_weight: 1e2
   
 
 # evaluation setting

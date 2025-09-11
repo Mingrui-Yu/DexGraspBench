@@ -29,8 +29,8 @@
             // "args": ["setting=tabletop", "hand=shadow", "task=dummy_arm_qpos", "exp_name=learn", "task.max_num=-1"],
             // "args": ["setting=tabletop", "hand=shadow", "task=eval", "exp_name=learn", "task.max_num=100"],
             
-            "args": ["setting=tabletop", "hand=dummy_arm_leap_tac3d", "task=control_eval", "exp_name=learn", 
-                     "task.method=ours", "task.offsets=[0.00]", "task.input_data=grasp_dir", "task.debug_viewer=True", "task.debug_render=False"],
+            "args": ["setting=tabletop", "hand=dummy_arm_shadow", "task=control_eval", "exp_name=learn", 
+                     "task.method=ours", "task.offsets=[0.02]", "task.input_data=grasp_dir", "task.debug_viewer=True", "task.debug_render=True"],
 
             // "args": ["setting=tabletop", "hand=dummy_arm_leap_tac3d", "task=control_stat", "exp_name=learn", 
             //          "task.method=ours"],

@@ -27,10 +27,10 @@ if __name__ == "__main__":
         doa2dof_matrix=doa2dof_matrix,
     )
 
-    grasp_ctrl = GraspController(robot, robot_adaptor)
+    grasp_ctrl = GraspController(None, robot, robot_adaptor)
 
     method = "ours"
-    data_path = f"output/learn_dummy_arm_allegro/control/core_bottle_15787789482f045d8add95bf56d3d2fa/tabletop_ur10e/scale006_pose004_0/{method}/partial_pc_00_6_dist_0_pos_0.npy"
+    data_path = "output/learn_dummy_arm_shadow/control/core_bottle_940b9e91a4a32a4130612f5c0ef21eb8/tabletop_ur10e/scale012_pose008_0/ours_ab2/partial_pc_03_3_dist_2_pos_4.npy"
 
     r_data = np.load(data_path, allow_pickle=True).item()
 

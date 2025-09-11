@@ -114,6 +114,14 @@ class BaseEval:
             # Detailed simulation methods for testing
             self._simulate_under_extforce_details(pregrasp_qpos, grasp_qpos, squeeze_qpos)
 
+            # # TEMP
+            # while True:
+            #     print(f"lookat: {self.mj_ho.debug_viewer.cam.lookat}")
+            #     print(f"distance: {self.mj_ho.debug_viewer.cam.distance}")
+            #     print(f"azimuth: {self.mj_ho.debug_viewer.cam.azimuth}")
+            #     print(f"elevation: {self.mj_ho.debug_viewer.cam.elevation}")
+            #     self.mj_ho.control_hand_step(10)
+
             # Lift the object
             curr_qpos_a = self.mj_ho.get_qpos_a()
             lift_qpos_a = curr_qpos_a.copy()
@@ -151,10 +159,21 @@ class BaseEval:
         if self.configs.task.debug_viewer or self.configs.task.debug_render:
             print(succ_flag, delta_pos, delta_angle)
             if self.configs.task.debug_render:
-                debug_path = self.input_npy_path.replace(input_dir, self.configs.task.debug_dir).replace(".npy", ".gif")
+                debug_path = self.input_npy_path.replace(input_dir, self.configs.task.debug_dir).replace(
+                    ".npy", f"/{method_name}.gif"
+                )
                 os.makedirs(os.path.dirname(debug_path), exist_ok=True)
                 imageio.mimsave(debug_path, self.mj_ho.debug_images)
                 print("Save GIF to ", debug_path)
+                # save all images
+                debug_dir = self.input_npy_path.replace(input_dir, self.configs.task.debug_dir).replace(
+                    ".npy", f"/{method_name}/"
+                )
+                os.makedirs(debug_dir, exist_ok=True)
+                for i, img in enumerate(self.mj_ho.debug_images):
+                    frame_path = os.path.join(debug_dir, f"frame_{i:04d}.png")
+                    imageio.imwrite(frame_path, img)
+                print("Save images to ", debug_path)
 
     def run(self):
         # test with object position uncertainty
@@ -173,6 +192,10 @@ class BaseEval:
                 shifted_obj_poses[:, 0:2] += obj_offset_dist * directions
 
             for i in range(shifted_obj_poses.shape[0]):
+                if self.configs.task.debug_viewer or self.configs.task.debug_render:
+                    if i not in [6]:
+                        continue
+
                 file_suffix = f"_dist_{str(int(100 * obj_offset_dist))}_pos_{i}"
                 self._eval_simulate_under_extforce(obj_pose=shifted_obj_poses[i, :], file_suffix=file_suffix)
 

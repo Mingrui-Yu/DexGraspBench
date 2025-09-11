@@ -143,10 +143,28 @@ class MjHO:
             # 初始化视角参数
             self.cam = mujoco.MjvCamera()
             mujoco.mjv_defaultCamera(self.cam)
-            self.cam.lookat[:] = [0.7, 0, 0.2]  # 相机注视点 (x, y, z)
-            self.cam.distance = 0.4  # 相机与注视点的距离
-            self.cam.azimuth = 25  # 水平旋转角度，单位度
-            self.cam.elevation = 0  # 垂直旋转角度，单位度
+            # self.cam.lookat[:] = [0.7, 0, 0.2]  # 相机注视点 (x, y, z)
+            # self.cam.distance = 0.6  # 相机与注视点的距离
+            # self.cam.azimuth = 25  # 水平旋转角度，单位度
+            # self.cam.elevation = 0  # 垂直旋转角度，单位度
+
+            # # case of whether using arm motion: case 27
+            # self.cam.lookat[:] = [0.7, 0, 0.16]
+            # self.cam.distance = 0.6
+            # self.cam.azimuth = 27.9
+            # self.cam.elevation = -0
+
+            # # case of whether using arm motion: case 44
+            # self.cam.lookat[:] = [0.8, -0.03, 0.078]
+            # self.cam.distance = 0.27
+            # self.cam.azimuth = 97
+            # self.cam.elevation = -30
+
+            # case of whether using arm motion: case 19
+            self.cam.lookat[:] = [0.75, 0.06, 0.10]
+            self.cam.distance = 0.30
+            self.cam.azimuth = -8.43
+            self.cam.elevation = -13.625
 
         return
 
@@ -220,7 +238,7 @@ class MjHO:
                 type=mujoco.mjtGeom.mjGEOM_MESH,
                 meshname=mesh_name,
                 density=obj_density,
-                rgba=[0.8, 0.8, 0.8, 1.0],  # white
+                rgba=[0.925, 0.7, 0.42, 1.0],  # yellow
             )
 
         return

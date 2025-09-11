@@ -84,6 +84,8 @@ class GraspController:
             self.Kp_inv = np.linalg.inv(self.Kp)
             self.Ke = np.diag([self.Ke_scalar, self.Ke_scalar, self.Ke_scalar])  # x-axis is the contact normal
 
+            self.tan_motion_pen_weight = configs.tan_motion_pen_weight
+
         self.balance_thres = 0.4
         self.mu = 0.3  # friction coef
         if "shadow" in self.robot.name:
@@ -342,11 +344,10 @@ class GraspController:
         w_hb_pose = np.diag([0, 0, 100.0, 10.0, 10.0, 10.0])
         w_q_hand = 1.0 * np.eye(n_hand_dof)
         w_dqa = 0.01 * np.eye(n_dof)  #  <= 0.01
-        w_ddqa = [0.00001] * n_arm_dof + [0.001] * n_hand_dof
-        # w_dqa = 0.001 * np.eye(n_dof)  #  <= 0.01
-        # w_ddqa = [0.00001] * n_arm_dof + ([0.001] * n_hand_dof if stage == 1 else [0.01] * n_hand_dof)
+        # w_ddqa = [0.00001] * n_arm_dof + [0.001] * n_hand_dof # DEBUG
+        w_ddqa = [0.001] * n_arm_dof + [0.001] * n_hand_dof
         w_ddqa = np.diag(w_ddqa)
-        w_cp = np.diag([0.0, 100, 100])
+        w_cp = np.diag([0.0, self.tan_motion_pen_weight, self.tan_motion_pen_weight])
         w_cp = block_diag(*[w_cp for _ in range(n_con)])
         w_cf = np.diag([0.0, 0.1, 0.1])
         w_cf = block_diag(*[w_cf for _ in range(n_con)])
