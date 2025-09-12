@@ -29,7 +29,7 @@ def combine_mean_std(means, stds, counts):
 def main():
     setting_lst = ["dist_0"]
     hand_lst = ["shadow", "allegro", "leap_tac3d"]
-    method_lst = ["ours_ab2", "bs2"]
+    method_lst = ["ours_ab2", "ours_ab1", "bs2"]
     # method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5"]
 
     # hand_lst = ["shadow"]

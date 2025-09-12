@@ -3,7 +3,7 @@ import subprocess
 # Parameters
 exp_name = "learn"
 max_num = -1
-setting_names = ["dist_0"]
+setting_names = ["dist_2"]
 hands = ["dummy_arm_shadow", "dummy_arm_allegro", "dummy_arm_leap_tac3d"]
 # methods = ["ours", "op", "bs1", "bs2", "bs3"]
 methods = ["ours"]

@@ -33,7 +33,7 @@ if __name__ == "__main__":
     grasp_ctrl = GraspController(config, robot, robot_adaptor)
 
     method = "ours"
-    data_path = "output/learn_dummy_arm_shadow/control/core_bottle_15787789482f045d8add95bf56d3d2fa/tabletop_ur10e/scale006_pose004_0/ours_ab2/partial_pc_00_6_dist_0_pos_0.npy"
+    data_path = "output/learn_dummy_arm_shadow/control/core_jar_32dc55c3e945384dbc5e533ab711fd24/tabletop_ur10e/scale010_pose008_0/ours_ab2/partial_pc_02_2_dist_2_pos_6.npy"
 
     r_data = np.load(data_path, allow_pickle=True).item()
 

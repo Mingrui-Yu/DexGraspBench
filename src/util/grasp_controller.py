@@ -85,6 +85,7 @@ class GraspController:
             self.Ke = np.diag([self.Ke_scalar, self.Ke_scalar, self.Ke_scalar])  # x-axis is the contact normal
 
             self.tan_motion_pen_weight = configs.tan_motion_pen_weight
+            self.use_multi_contact_model = configs.use_multi_contact_model
 
         self.balance_thres = 0.4
         self.mu = 0.3  # friction coef
@@ -118,38 +119,77 @@ class GraspController:
         self.robot_adaptor.compute_jaco_a(q_f)  # J(q)
         body_jaco_f_lst = [self.robot_adaptor.get_frame_jaco(frame_name=name, type="body") for name in body_name_lst]
 
-        for i, contact in enumerate(contacts):
-            cp_local = contact["contact_pos_local"].reshape(-1, 1)  # p_B in A
-            cf_local = contact["contact_frame_local"].reshape(3, 3)  # R_B in A
-            Trans = np.block([[I3, -skew(cp_local)]])
-            # arm-hand
-            body_jaco_a = body_jaco_a_lst[i]
-            body_jaco_f = body_jaco_f_lst[i]
-            contact_jaco_a = cf_local.T @ Trans @ body_jaco_a  # J_B in B (translation part)
-            contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
-            contact["jaco_a"] = contact_jaco_a
-            contact["jaco_f"] = contact_jaco_f
+        if self.use_multi_contact_model:
+            for i, contact in enumerate(contacts):
+                cp_local = contact["contact_pos_local"].reshape(-1, 1)  # p_B in A
+                cf_local = contact["contact_frame_local"].reshape(3, 3)  # R_B in A
+                Trans = np.block([[I3, -skew(cp_local)]])
+                # arm-hand
+                body_jaco_a = body_jaco_a_lst[i]
+                body_jaco_f = body_jaco_f_lst[i]
+                contact_jaco_a = cf_local.T @ Trans @ body_jaco_a  # J_B in B (translation part)
+                contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
+                contact["jaco_a"] = contact_jaco_a
+                contact["jaco_f"] = contact_jaco_f
 
-            # only hand
-            contact_jaco_ha = contact_jaco_a[:, -hand_ndoa:]
-            contact_jaco_hf = contact_jaco_f[:, -hand_ndoa:]
-            contact["jaco_ha"] = contact_jaco_ha
-            contact["jaco_hf"] = contact_jaco_hf
+                # only hand
+                contact_jaco_ha = contact_jaco_a[:, -hand_ndoa:]
+                contact_jaco_hf = contact_jaco_f[:, -hand_ndoa:]
+                contact["jaco_ha"] = contact_jaco_ha
+                contact["jaco_hf"] = contact_jaco_hf
 
-            contacts[i] = contact
+                contacts[i] = contact
 
-        n_con = len(contacts)
-        I_stack = np.eye(3 * n_con)
-        Ke_stack = block_diag(*([self.Ke] * n_con))
-        J_a_stack = np.concatenate([contact["jaco_a"] for contact in contacts], axis=0)
-        J_f_stack = np.concatenate([contact["jaco_f"] for contact in contacts], axis=0)
-        Kr_inv_stack = J_a_stack @ self.Kp_inv @ J_f_stack.T
-        Ks_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_inv_stack) @ Ke_stack
+            n_con = len(contacts)
+            I_stack = np.eye(3 * n_con)
+            Ke_stack = block_diag(*([self.Ke] * n_con))
+            J_a_stack = np.concatenate([contact["jaco_a"] for contact in contacts], axis=0)
+            J_f_stack = np.concatenate([contact["jaco_f"] for contact in contacts], axis=0)
+            Kr_inv_stack = J_a_stack @ self.Kp_inv @ J_f_stack.T
+            Ks_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_inv_stack) @ Ke_stack
 
-        J_ha_stack = np.concatenate([contact["jaco_ha"] for contact in contacts], axis=0)
-        J_hf_stack = np.concatenate([contact["jaco_hf"] for contact in contacts], axis=0)
-        Kr_h_inv_stack = J_ha_stack @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ J_hf_stack.T
-        Ks_h_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_h_inv_stack) @ Ke_stack
+            J_ha_stack = np.concatenate([contact["jaco_ha"] for contact in contacts], axis=0)
+            J_hf_stack = np.concatenate([contact["jaco_hf"] for contact in contacts], axis=0)
+            Kr_h_inv_stack = J_ha_stack @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ J_hf_stack.T
+            Ks_h_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_h_inv_stack) @ Ke_stack
+
+        else:
+            for i, contact in enumerate(contacts):
+                cp_local = contact["contact_pos_local"].reshape(-1, 1)  # p_B in A
+                cf_local = contact["contact_frame_local"].reshape(3, 3)  # R_B in A
+                Trans = np.block([[I3, -skew(cp_local)]])
+                # arm-hand
+                body_jaco_a = body_jaco_a_lst[i]
+                body_jaco_f = body_jaco_f_lst[i]
+                contact_jaco_a = cf_local.T @ Trans @ body_jaco_a  # J_B in B (translation part)
+                contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
+                if self.Kr_use_two_jaco_a:
+                    Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_a.T
+                else:
+                    Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_f.T
+                Ks = np.linalg.inv(I3 + self.Ke @ Kr_inv) @ self.Ke  # in contact local frame
+                contact["Ks"] = Ks
+                contact["jaco_a"] = contact_jaco_a
+                contact["jaco_f"] = contact_jaco_f
+
+                # only hand
+                contact_jaco_ha = contact_jaco_a[:, -hand_ndoa:]
+                contact_jaco_hf = contact_jaco_f[:, -hand_ndoa:]
+                Kr_h_inv = contact_jaco_ha @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ contact_jaco_hf.T
+                Ks_h = np.linalg.inv(I3 + self.Ke @ Kr_h_inv) @ self.Ke  # in contact local frame
+                contact["Ks_h"] = Ks_h
+                contact["jaco_ha"] = contact_jaco_ha
+                contact["jaco_hf"] = contact_jaco_hf
+
+                contacts[i] = contact
+
+            Ks_stack = block_diag(*[contact["Ks"] for contact in contacts])
+            J_a_stack = np.concatenate([contact["jaco_a"] for contact in contacts], axis=0)
+            J_f_stack = np.concatenate([contact["jaco_f"] for contact in contacts], axis=0)
+
+            Ks_h_stack = block_diag(*[contact["Ks_h"] for contact in contacts])
+            J_ha_stack = np.concatenate([contact["jaco_ha"] for contact in contacts], axis=0)
+            J_hf_stack = np.concatenate([contact["jaco_hf"] for contact in contacts], axis=0)
 
         stacked = {}
         stacked["Ks"] = Ks_stack

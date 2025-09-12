@@ -59,6 +59,7 @@ control:
   Ke_scalar: 1e5 # approximate in mujoco: 1e5-1e6 (GPT)
   use_coupling: False # must be False in theory
   tan_motion_pen_weight: 1e3 # DEBUG
+  use_multi_contact_model: True
 
   ab0: # no consideration of tan force
     stage2_tan_force_constraint: False
@@ -86,6 +87,9 @@ control:
 
   ab7: # lower tan_motion_pen_weight
     tan_motion_pen_weight: 1e2
+
+  ab8: # not use multi contact model
+    use_multi_contact_model: False
   
 
 # evaluation setting
