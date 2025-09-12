@@ -86,6 +86,7 @@ class GraspController:
 
             self.tan_motion_pen_weight = configs.tan_motion_pen_weight
             self.use_multi_contact_model = configs.use_multi_contact_model
+            self.stage2_penalize_contact_qda = configs.stage2_penalize_contact_qda
 
         self.balance_thres = 0.4
         self.mu = 0.3  # friction coef
@@ -403,12 +404,14 @@ class GraspController:
 
         q_f2a_direction = np.sign(curr_q_a - curr_q_f)
         if stage == 2 and n_con > 0:
-            # in_contact_q_indices = np.any(contact_jaco_all != 0, axis=0)
+            in_contact_q_indices = np.any(contact_jaco_all != 0, axis=0)
             contact_jaco_h = contact_jaco_all[:, -n_hand_dof:]
             in_contact_qh_indices = np.any(contact_jaco_h != 0, axis=0)
             if self.stage2_incontact_force_only:
                 # in-contact joint, no position control
                 w_q_hand[in_contact_qh_indices, in_contact_qh_indices] = 0
+            if self.stage2_penalize_contact_qda:
+                w_dqa[in_contact_q_indices, in_contact_q_indices] *= 100
 
         def objective(x):
             dq_a = x[:n_dof].copy()

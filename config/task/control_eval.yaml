@@ -60,6 +60,7 @@ control:
   use_coupling: False # must be False in theory
   tan_motion_pen_weight: 1e3 # DEBUG
   use_multi_contact_model: True
+  stage2_penalize_contact_qda: False
 
   ab0: # no consideration of tan force
     stage2_tan_force_constraint: False
@@ -90,6 +91,9 @@ control:
 
   ab8: # not use multi contact model
     use_multi_contact_model: False
+
+  ab9:
+    stage2_penalize_contact_qda: True
   
 
 # evaluation setting

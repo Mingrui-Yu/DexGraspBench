@@ -127,7 +127,8 @@ if __name__ == "__main__":
 
     n_arm_dof = 6
     I3 = np.eye(3)
-    target_body_name = "rh_thdistal"
+    # target_body_name = "rh_thdistal"
+    target_body_name = "rh_thmiddle"
     # target_body_name = "rh_ffdistal"
 
     for i in range(n_step):
