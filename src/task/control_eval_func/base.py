@@ -192,9 +192,9 @@ class BaseEval:
                 shifted_obj_poses[:, 0:2] += obj_offset_dist * directions
 
             for i in range(shifted_obj_poses.shape[0]):
-                if self.configs.task.debug_viewer or self.configs.task.debug_render:
-                    if i not in [0]:
-                        continue
+                # if self.configs.task.debug_viewer or self.configs.task.debug_render:
+                #     if i not in [6]:
+                #         continue
 
                 file_suffix = f"_dist_{str(int(100 * obj_offset_dist))}_pos_{i}"
                 self._eval_simulate_under_extforce(obj_pose=shifted_obj_poses[i, :], file_suffix=file_suffix)

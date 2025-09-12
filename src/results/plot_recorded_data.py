@@ -2,6 +2,8 @@ import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import yaml
+from omegaconf import OmegaConf
 
 parent_dir = os.path.abspath(os.path.join(__file__, "..", ".."))
 sys.path.append(parent_dir)
@@ -27,10 +29,11 @@ if __name__ == "__main__":
         doa2dof_matrix=doa2dof_matrix,
     )
 
-    grasp_ctrl = GraspController(None, robot, robot_adaptor)
+    config = OmegaConf.load("config/task/control_eval.yaml").control
+    grasp_ctrl = GraspController(config, robot, robot_adaptor)
 
     method = "ours"
-    data_path = "output/learn_dummy_arm_shadow/control/core_bottle_940b9e91a4a32a4130612f5c0ef21eb8/tabletop_ur10e/scale012_pose008_0/ours_ab2/partial_pc_03_3_dist_2_pos_4.npy"
+    data_path = "output/learn_dummy_arm_shadow/control/core_bottle_15787789482f045d8add95bf56d3d2fa/tabletop_ur10e/scale006_pose004_0/ours_ab2/partial_pc_00_6_dist_0_pos_0.npy"
 
     r_data = np.load(data_path, allow_pickle=True).item()
 
@@ -114,50 +117,52 @@ if __name__ == "__main__":
     plt.grid(True)
 
     # --------------------------------
-    # plt.figure(figsize=(8, 5))
-    # plt.title("contact model")
+    plt.figure(figsize=(8, 5))
+    plt.title("contact model")
 
-    # seq_cf_actual = np.zeros((t.shape[0], 3))
-    # seq_cf_pred = np.zeros((t.shape[0], 3))
-    # seq_delta_p_1 = np.zeros((t.shape[0], 3))
-    # seq_delta_p_2 = np.zeros((t.shape[0], 3))
+    seq_cf_actual = np.zeros((t.shape[0], 3))
+    seq_cf_pred = np.zeros((t.shape[0], 3))
+    seq_delta_p_1 = np.zeros((t.shape[0], 3))
+    seq_delta_p_2 = np.zeros((t.shape[0], 3))
 
-    # I3 = np.eye(3)
+    n_arm_dof = 6
+    I3 = np.eye(3)
+    body_name = "rh_thdistal"
+    # body_name = "rh_ffdistal"
 
-    # for i in range(n_step):
-    #     contacts = r_data["contacts"][i]
-    #     robot_adaptor.compute_jaco_a(seq_doa[i, :])
-    #     delta_q = seq_doa[i, :] - seq_dof[i, :]
-    #     for contact in contacts:
-    #         body_name = contact["body1_name"]
-    #         if body_name == "rh_thdistal":
-    #             cf_actual = contact["contact_force"][:3]
-    #             Ks = contact["Ks"]
-    #             body_jaco = robot_adaptor.get_frame_jaco(body_name, type="body")
+    for i in range(n_step):
+        contacts = r_data["contacts"][i]
+        robot_adaptor.compute_jaco_a(seq_doa[i, :])
+        delta_q = seq_doa[i, :] - seq_dof[i, :]
 
-    #             cp_local = contact["contact_pos_local"].reshape(-1, 1)  # p_B in A
-    #             cf_local = contact["contact_frame_local"].reshape(3, 3)  # R_B in A
-    #             Trans = np.block([[I3, -skew(cp_local)]])
-    #             contact_jaco = cf_local.T @ Trans @ body_jaco  # J_B in B (translation part)
+        if len(contacts) > 0:
+            _, stacked = grasp_ctrl.Ks(q_a=seq_doa[i, :], q_f=seq_dof[i, :], contacts=contacts)
+            contact_force_all = np.concatenate([contact["contact_force"][:3] for contact in contacts], axis=0)
 
-    #             delta_p_1 = contact_jaco @ delta_q.reshape(-1, 1)
-    #             delta_p_2 = contact["delta_p"].reshape(-1, 1)  # more accurate
+            Ks = stacked["Ks"]
+            contact_jaco = stacked["jaco_a"]
+            # contact_jaco[:, :n_arm_dof] = 0
+            delta_p_1 = contact_jaco @ delta_q.reshape(-1, 1)
+            cf_pred = (Ks @ delta_p_1).reshape(-1)
 
-    #             cf_pred = (Ks @ delta_p_2).reshape(-1)
+            contact_body_lst = [contact["body1_name"] for contact in contacts]
+            if body_name in contact_body_lst:
+                contact_idx = [contact["body1_name"] for contact in contacts].index(body_name)
+                seq_cf_actual[i, :] = contact_force_all.reshape(-1, 3)[contact_idx, :]
+                seq_cf_pred[i, :] = cf_pred.reshape(-1, 3)[contact_idx, :]
+                seq_delta_p_1[i, :] = delta_p_1.reshape(-1, 3)[contact_idx, :]
 
-    #             seq_cf_actual[i, :] = cf_actual
-    #             seq_cf_pred[i, :] = cf_pred
-    #             seq_delta_p_1[i, :] = delta_p_1.reshape(-1)
-    #             seq_delta_p_2[i, :] = delta_p_2.reshape(-1)
+    labels = ["x", "y", "z"]
+    for i, n in enumerate(labels):
+        # 画实线 (actual)
+        plt.plot(t, seq_cf_actual[:, i], label=n)
+        # 画虚线 (pred)，颜色和前一条线一致
+        plt.plot(t, seq_cf_pred[:, i], linestyle="--", color=plt.gca().lines[-1].get_color(), label=f"pred_{n}")
 
-    # labels = ["x", "y", "z"]
-    # plt.plot(t, seq_cf_actual, label=labels)
-    # plt.plot(t, seq_cf_pred, label=[f"pred_{n}" for n in labels])
-
-    # plt.xlabel("t")
-    # plt.ylabel("y")
-    # plt.legend()
-    # plt.grid(True)
+    plt.xlabel("t")
+    plt.ylabel("y")
+    plt.legend()
+    plt.grid(True)
 
     # # --------------------------------
     # plt.figure(figsize=(8, 5))
@@ -280,6 +285,25 @@ if __name__ == "__main__":
     plt.ylabel("y")
     # plt.legend()
     plt.grid(True)
+
+    # # -------------------------------
+    # plt.figure(figsize=(8, 5))
+    # plt.title("contact force of each fingertip")
+    # seq_cf_each_finger = np.zeros((n_step, 4, 3))
+    # link_names = ["rh_finger1_tip_center", "rh_finger2_tip_center", "rh_finger3_tip_center", "rh_thumb_tip_center"]
+
+    # for i in range(n_step):
+    #     contacts = r_data["contacts"][i]
+    #     for contact in contacts:
+    #         idx = link_names.index(contact["body1_name"])
+    #         seq_cf_each_finger[i, idx, :] = contact["contact_force"]
+
+    # for i in range(4):
+    #     plt.plot(t, seq_cf_each_finger[:, i, 0], label=link_names[i])
+    # plt.xlabel("t")
+    # plt.ylabel("y")
+    # plt.legend()
+    # plt.grid(True)
 
     # -------------------------------
     plt.show()

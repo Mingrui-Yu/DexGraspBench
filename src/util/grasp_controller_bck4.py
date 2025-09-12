@@ -127,40 +127,27 @@ class GraspController:
             body_jaco_f = body_jaco_f_lst[i]
             contact_jaco_a = cf_local.T @ Trans @ body_jaco_a  # J_B in B (translation part)
             contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
+            if self.Kr_use_two_jaco_a:
+                Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_a.T
+            else:
+                Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_f.T
+            Ks = np.linalg.inv(I3 + self.Ke @ Kr_inv) @ self.Ke  # in contact local frame
+            contact["Ks"] = Ks
             contact["jaco_a"] = contact_jaco_a
             contact["jaco_f"] = contact_jaco_f
 
             # only hand
             contact_jaco_ha = contact_jaco_a[:, -hand_ndoa:]
             contact_jaco_hf = contact_jaco_f[:, -hand_ndoa:]
+            Kr_h_inv = contact_jaco_ha @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ contact_jaco_hf.T
+            Ks_h = np.linalg.inv(I3 + self.Ke @ Kr_h_inv) @ self.Ke  # in contact local frame
+            contact["Ks_h"] = Ks_h
             contact["jaco_ha"] = contact_jaco_ha
             contact["jaco_hf"] = contact_jaco_hf
 
             contacts[i] = contact
 
-        n_con = len(contacts)
-        I_stack = np.eye(3 * n_con)
-        Ke_stack = block_diag(*([self.Ke] * n_con))
-        J_a_stack = np.concatenate([contact["jaco_a"] for contact in contacts], axis=0)
-        J_f_stack = np.concatenate([contact["jaco_f"] for contact in contacts], axis=0)
-        Kr_inv_stack = J_a_stack @ self.Kp_inv @ J_f_stack.T
-        Ks_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_inv_stack) @ Ke_stack
-
-        J_ha_stack = np.concatenate([contact["jaco_ha"] for contact in contacts], axis=0)
-        J_hf_stack = np.concatenate([contact["jaco_hf"] for contact in contacts], axis=0)
-        Kr_h_inv_stack = J_ha_stack @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ J_hf_stack.T
-        Ks_h_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_h_inv_stack) @ Ke_stack
-
-        stacked = {}
-        stacked["Ks"] = Ks_stack
-        stacked["jaco_a"] = J_a_stack
-        stacked["jaco_f"] = J_f_stack
-
-        stacked["Ks_h"] = Ks_h_stack
-        stacked["jaco_ha"] = J_ha_stack
-        stacked["jaco_hf"] = J_hf_stack
-
-        return contacts, stacked
+        return contacts
 
     def compute_grasp_matrix(self, ho_contacts) -> np.ndarray:
         n_con = len(ho_contacts)
@@ -315,16 +302,23 @@ class GraspController:
             # compute grasp matrix
             contact_G = self.compute_grasp_matrix(ho_contacts) if grasp_matrix is None else grasp_matrix
             # compute Ks and contact jacobian
-            updated_contacts, stacked = self.Ks(q_a=curr_q_a, q_f=curr_q_f, contacts=ho_contacts)
-            contact_force_all = np.concatenate([contact["contact_force"][:3] for contact in updated_contacts], axis=0)
-            contact_jaco_all = stacked["jaco_a"]
-            # whether use Ks_h
-            if stage == 1 or (not self.stage2_Ks_hand_only):
-                Ks_all = stacked["Ks"]
-            else:
-                Ks_all = stacked["Ks_h"]
-                contact_jaco_all[:, :n_arm_dof] = 0
-            # whether consider coupling
+            updated_contacts = self.Ks(q_a=curr_q_a, q_f=curr_q_f, contacts=ho_contacts)
+            Ks_all = []
+            contact_jaco_all = []  # J(qd)
+            contact_force_all = []
+            for _, contact in enumerate(updated_contacts):
+                jaco_a = contact["jaco_a"]
+                if stage == 1 or (not self.stage2_Ks_hand_only):
+                    Ks = contact["Ks"]
+                else:
+                    Ks = contact["Ks_h"]
+                    jaco_a[:, :n_arm_dof] = 0
+                Ks_all.append(Ks)
+                contact_jaco_all.append(jaco_a)
+                contact_force_all.append(contact["contact_force"][:3])
+            Ks_all = block_diag(*Ks_all)
+            contact_jaco_all = np.concatenate(contact_jaco_all, axis=0)
+            contact_force_all = np.concatenate(contact_force_all, axis=0)
             if self.use_coupling and n_con > 1:
                 K_coup = (
                     Ks_all
@@ -335,7 +329,7 @@ class GraspController:
                     @ Ks_all
                 )
                 Ks_jaco = K_coup @ contact_jaco_all
-            else:  # not use coupling
+            else:
                 Ks_jaco = Ks_all @ contact_jaco_all
         else:
             contact_force_all = np.zeros((0))

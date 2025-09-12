@@ -64,41 +64,21 @@ control:
     stage2_tan_force_constraint: False
     stage2_ctrl_tan_force: False
 
-    stage2_increase_force: False
-    stage2_equal_joint_force_cost: True
-    Ke_scalar: 1e5
-
   ab1: # strictly consider tan force
     stage2_tan_force_constraint: True
     stage2_ctrl_tan_force: False
-
-    stage2_increase_force: False
-    stage2_equal_joint_force_cost: True
-    Ke_scalar: 1e5
 
   ab2: # softly consider tan force
     stage2_tan_force_constraint: False
     stage2_ctrl_tan_force: True
 
-    stage2_increase_force: False
-    stage2_equal_joint_force_cost: True
-    Ke_scalar: 1e5
-
   ab3: # no equal joint force cost
-    stage2_tan_force_constraint: False
-    stage2_ctrl_tan_force: True
 
-    stage2_increase_force: False
     stage2_equal_joint_force_cost: False
-    Ke_scalar: 1e5
 
   ab4: # add stage2_increase_force
-    stage2_tan_force_constraint: False
-    stage2_ctrl_tan_force: True
 
     stage2_increase_force: True
-    stage2_equal_joint_force_cost: True
-    Ke_scalar: 1e5
 
   ab5: # coupling
     use_coupling: True
