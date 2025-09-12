@@ -73,11 +73,9 @@ control:
     stage2_ctrl_tan_force: True
 
   ab3: # no equal joint force cost
-
     stage2_equal_joint_force_cost: False
 
   ab4: # add stage2_increase_force
-
     stage2_increase_force: True
 
   ab5: # coupling

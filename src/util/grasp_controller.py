@@ -350,7 +350,7 @@ class GraspController:
         w_hb_pose = np.diag([0, 0, 100.0, 10.0, 10.0, 10.0])
         w_q_hand = 1.0 * np.eye(n_hand_dof)
         w_dqa = 0.01 * np.eye(n_dof)  #  <= 0.01
-        # w_ddqa = [0.00001] * n_arm_dof + [0.001] * n_hand_dof # DEBUG
+        # w_ddqa = [0.00001] * n_arm_dof + [0.001] * n_hand_dof
         w_ddqa = [0.001] * n_arm_dof + [0.001] * n_hand_dof
         w_ddqa = np.diag(w_ddqa)
         w_cp = np.diag([0.0, self.tan_motion_pen_weight, self.tan_motion_pen_weight])

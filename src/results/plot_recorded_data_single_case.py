@@ -33,7 +33,7 @@ if __name__ == "__main__":
     grasp_ctrl = GraspController(config, robot, robot_adaptor)
 
     method = "ours"
-    data_path = "output/learn_dummy_arm_shadow/control/core_bottle_15787789482f045d8add95bf56d3d2fa/tabletop_ur10e/scale006_pose004_0/ours_ab2/partial_pc_00_6_dist_0_pos_0.npy"
+    data_path = "output/learn_dummy_arm_shadow/control/core_jar_32dc55c3e945384dbc5e533ab711fd24/tabletop_ur10e/scale010_pose008_0/ours_ab2/partial_pc_02_2_dist_2_pos_6.npy"
 
     r_data = np.load(data_path, allow_pickle=True).item()
 
@@ -127,8 +127,8 @@ if __name__ == "__main__":
 
     n_arm_dof = 6
     I3 = np.eye(3)
-    body_name = "rh_thdistal"
-    # body_name = "rh_ffdistal"
+    target_body_name = "rh_thdistal"
+    # target_body_name = "rh_ffdistal"
 
     for i in range(n_step):
         contacts = r_data["contacts"][i]
@@ -146,11 +146,11 @@ if __name__ == "__main__":
             cf_pred = (Ks @ delta_p_1).reshape(-1)
 
             contact_body_lst = [contact["body1_name"] for contact in contacts]
-            if body_name in contact_body_lst:
-                contact_idx = [contact["body1_name"] for contact in contacts].index(body_name)
-                seq_cf_actual[i, :] = contact_force_all.reshape(-1, 3)[contact_idx, :]
-                seq_cf_pred[i, :] = cf_pred.reshape(-1, 3)[contact_idx, :]
-                seq_delta_p_1[i, :] = delta_p_1.reshape(-1, 3)[contact_idx, :]
+            for contact_idx, name in enumerate(contact_body_lst):
+                if name == target_body_name:
+                    seq_cf_actual[i, :] += contact_force_all.reshape(-1, 3)[contact_idx, :]
+                    seq_cf_pred[i, :] += cf_pred.reshape(-1, 3)[contact_idx, :]
+                    # seq_delta_p_1[i, :] = delta_p_1.reshape(-1, 3)[contact_idx, :]
 
     labels = ["x", "y", "z"]
     for i, n in enumerate(labels):
@@ -196,19 +196,6 @@ if __name__ == "__main__":
 
         seq_balance_metric = np.asarray(r_data["balance_metric"])
         plt.plot(t, seq_balance_metric)
-
-        plt.xlabel("t")
-        plt.ylabel("y")
-        # plt.legend()
-        plt.grid(True)
-
-    # --------------------------------
-    if method == "ours":
-        plt.figure(figsize=(8, 5))
-        plt.title("t_ctrl_opt")
-
-        seq_t_ctrl_opt = np.asarray(r_data["t_ctrl_opt"])
-        plt.plot(t, seq_t_ctrl_opt)
 
         plt.xlabel("t")
         plt.ylabel("y")
@@ -286,24 +273,42 @@ if __name__ == "__main__":
     # plt.legend()
     plt.grid(True)
 
-    # # -------------------------------
-    # plt.figure(figsize=(8, 5))
-    # plt.title("contact force of each fingertip")
-    # seq_cf_each_finger = np.zeros((n_step, 4, 3))
-    # link_names = ["rh_finger1_tip_center", "rh_finger2_tip_center", "rh_finger3_tip_center", "rh_thumb_tip_center"]
+    # -------------------------------
+    plt.figure(figsize=(8, 5))
+    plt.title("contact force of each fingertip")
 
-    # for i in range(n_step):
-    #     contacts = r_data["contacts"][i]
-    #     for contact in contacts:
-    #         idx = link_names.index(contact["body1_name"])
-    #         seq_cf_each_finger[i, idx, :] = contact["contact_force"]
+    # 自定义优先级
+    def sort_key(name):
+        order = {"ff": 0, "mf": 1, "rf": 2, "lf": 3, "th": 4}
+        for k in order:
+            if k in name:
+                return order[k]
+        return len(order)  # 默认放最后
 
-    # for i in range(4):
-    #     plt.plot(t, seq_cf_each_finger[:, i, 0], label=link_names[i])
-    # plt.xlabel("t")
-    # plt.ylabel("y")
-    # plt.legend()
-    # plt.grid(True)
+    link_names = set()
+    for i in range(n_step):
+        contacts = r_data["contacts"][i]
+        if len(contacts) > 0:
+            names = [contact["body1_name"] for contact in contacts]
+            link_names.update(names)
+    link_names = sorted(list(link_names), key=sort_key)
+
+    seq_cf = {}
+    for name in link_names:
+        seq_cf[name] = np.zeros((n_step, 3))
+
+    for i in range(n_step):
+        contacts = r_data["contacts"][i]
+        for contact in contacts:
+            body_name = contact["body1_name"]
+            seq_cf[body_name][i, :] += contact["contact_force"][:3]
+
+    for key in seq_cf.keys():
+        plt.plot(t, seq_cf[key][:, 0], label=key)
+    plt.xlabel("t")
+    plt.ylabel("y")
+    plt.legend()
+    plt.grid(True)
 
     # -------------------------------
     plt.show()
