@@ -30,13 +30,11 @@ def main():
     setting_lst = ["dist_0", "dist_2"]
     hand_lst = ["shadow", "allegro", "leap_tac3d"]
 
-    exp_name = "learn_large"
-    method_lst = ["ours_ab2", "ours_ab6"]
+    exp_name = "learn"
+    method_lst = ["ours_ab2"]
 
     # exp_name = "learn_5k"
     # method_lst = ["op", "bs1", "bs2", "bs3", "ours_ab2"]
-
-    
 
     n_valid = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))
     success_rate = np.zeros((len(setting_lst), len(hand_lst), len(method_lst)))
@@ -109,7 +107,9 @@ def main():
                 norm_wrench_mean[i_s, :, i_m], norm_wrench_std[i_s, :, i_m], n_valid[i_s, :, i_m]
             )
 
-            print(f"{setting_name} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, :, i_m])}")
+            print(
+                f"{setting_name} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, :, i_m])}"
+            )
             print(f"{setting_name} {method} total obj pos err: {total_pos_mean} +- {total_pos_std}")
             print(f"{setting_name} {method} total obj rot err: {total_rot_mean} +- {total_rot_std}")
             print(f"{setting_name} {method} total wrench err: {total_wrench_mean} +- {total_wrench_std}")
@@ -133,7 +133,9 @@ def main():
                     norm_wrench_mean[i_s, i_h, i_m], norm_wrench_std[i_s, i_h, i_m], n_valid[i_s, i_h, i_m]
                 )
 
-                print(f"{setting_name} {hand} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, i_h, i_m])}")
+                print(
+                    f"{setting_name} {hand} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, i_h, i_m])}"
+                )
                 print(f"{setting_name} {hand} {method} total obj pos err: {total_pos_mean} +- {total_pos_std}")
                 print(f"{setting_name} {hand} {method} total obj rot err: {total_rot_mean} +- {total_rot_std}")
                 print(f"{setting_name} {hand} {method} total wrench err: {total_wrench_mean} +- {total_wrench_std}")

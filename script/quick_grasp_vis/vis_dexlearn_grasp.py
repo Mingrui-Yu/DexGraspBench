@@ -20,19 +20,23 @@ from trimesh_visualizer import Visualizer
 
 
 if __name__ == "__main__":
-    hand = "leap_tac3d"
+    hand = "shadow"
     robot = RobotFactory.create_robot(hand, prefix="rh_")
     robot_mjcf_path = robot.get_file_path("mjcf")
-    pc_centering = True
+    pc_centering = False
 
     visualizer = Visualizer(robot_mjcf_path=robot_mjcf_path)
 
     object_path = "assets/object/DGN_2k"
     pc_path = "vision_data/azure_kinect_dk"
     object_pc_folder = os.path.join(object_path, pc_path)
-    prefix = "/home/mingrui/mingrui/research/adaptive_grasping_2/DexLearn/output/bodex_tabletop_leap_tac3d_nflow_realworld/tests/"
-    for i in range(10):
-        grasp_file_path = f"step_050000/core_bottle_1a7ba1f4c892e2da30711cdbdbc73924/tabletop_ur10e/scale006_pose000_0/partial_pc_01_{i}.npy"
+    prefix = (
+        "/home/mingrui/mingrui/research/adaptive_grasping_2/DexLearn/output/bodex_tabletop_shadow_nflow_debug0/tests/"
+    )
+    for i in [1]:
+        grasp_file_path = (
+            f"step_045000/ddg_gd_rubber_duck_poisson_001/tabletop_ur10e/scale006_pose000_0/partial_pc_00_{i}.npy"
+        )
         grasp_data = np.load(os.path.join(prefix, grasp_file_path), allow_pickle=True).item()
         scene_path = grasp_data["scene_path"]
         scene_data = np.load(scene_path, allow_pickle=True).item()
@@ -64,10 +68,22 @@ if __name__ == "__main__":
         obj_mesh = obj_mesh.copy().apply_scale(obj_scale)
         obj_mesh.apply_transform(obj_transform)
 
+        pregrasp_qpos = grasp_data["pregrasp_qpos"]
+        grasp_qpos = grasp_data["grasp_qpos"]
+        squeeze_qpos = grasp_data["squeeze_qpos"]
+
+        pregrasp_qpos[7:] += 2 * (pregrasp_qpos[7:] - grasp_qpos[7:])
+
+        visualizer.set_robot_parameters(torch.tensor(pregrasp_qpos).unsqueeze(0))
+        robot_mesh_0 = visualizer.get_robot_trimesh_data(i=0, color=[30, 119, 179])
+
         grasp_qpos = grasp_data["grasp_qpos"]
         visualizer.set_robot_parameters(torch.tensor(grasp_qpos).unsqueeze(0))
-        robot_mesh = visualizer.get_robot_trimesh_data(i=0, color=[255, 0, 0])
+        robot_mesh_1 = visualizer.get_robot_trimesh_data(i=0, color=[255, 127, 13])
 
-        axis = tm.creation.axis(origin_size=0.01, axis_length=1.0)
-        scene = tm.Scene(geometry=[robot_mesh, obj_mesh, axis, pc])
+        visualizer.set_robot_parameters(torch.tensor(squeeze_qpos).unsqueeze(0))
+        robot_mesh_2 = visualizer.get_robot_trimesh_data(i=0, color=[44, 160, 44])
+
+        # axis = tm.creation.axis(origin_size=0.01, axis_length=1.0)
+        scene = tm.Scene(geometry=[robot_mesh_0, robot_mesh_1, robot_mesh_2, pc])
         scene.show(smooth=False)

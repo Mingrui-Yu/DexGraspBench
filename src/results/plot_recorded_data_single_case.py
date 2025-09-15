@@ -30,10 +30,11 @@ if __name__ == "__main__":
     )
 
     config = OmegaConf.load("config/task/control_eval.yaml").control
+    config.use_multi_contact_model = True
     grasp_ctrl = GraspController(config, robot, robot_adaptor)
 
     method = "ours"
-    data_path = "output/learn_dummy_arm_shadow/control/core_jar_32dc55c3e945384dbc5e533ab711fd24/tabletop_ur10e/scale010_pose008_0/ours_ab2/partial_pc_02_2_dist_2_pos_6.npy"
+    data_path = "output/learn_dummy_arm_shadow/cases/for_overview/partial_pc_02_2_dist_2_pos_6.npy"
 
     r_data = np.load(data_path, allow_pickle=True).item()
 
@@ -117,19 +118,18 @@ if __name__ == "__main__":
     plt.grid(True)
 
     # --------------------------------
-    plt.figure(figsize=(8, 5))
-    plt.title("contact model")
 
     seq_cf_actual = np.zeros((t.shape[0], 3))
     seq_cf_pred = np.zeros((t.shape[0], 3))
     seq_delta_p_1 = np.zeros((t.shape[0], 3))
     seq_delta_p_2 = np.zeros((t.shape[0], 3))
+    seq_d_cf_actual = np.zeros((t.shape[0], 3))
+    seq_d_cf_pred = np.zeros((t.shape[0], 3))
 
     n_arm_dof = 6
     I3 = np.eye(3)
-    # target_body_name = "rh_thdistal"
-    target_body_name = "rh_thmiddle"
-    # target_body_name = "rh_ffdistal"
+    body_name = "rh_thdistal"
+    # body_name = "rh_ffdistal"
 
     for i in range(n_step):
         contacts = r_data["contacts"][i]
@@ -143,22 +143,58 @@ if __name__ == "__main__":
             contact_jaco = stacked["jaco_a"]
             contact_jaco[:, :n_arm_dof] = 0
             Ks = stacked["Ks_h"]
-            delta_p_1 = contact_jaco @ delta_q.reshape(-1, 1)
-            cf_pred = (Ks @ delta_p_1).reshape(-1)
+            # delta_p_1 = contact_jaco @ delta_q.reshape(-1, 1)
+            cf_pred = (Ks @ contact_jaco @ delta_q.reshape(-1, 1)).reshape(-1)
 
-            contact_body_lst = [contact["body1_name"] for contact in contacts]
-            for contact_idx, name in enumerate(contact_body_lst):
-                if name == target_body_name:
-                    seq_cf_actual[i, :] += contact_force_all.reshape(-1, 3)[contact_idx, :]
-                    seq_cf_pred[i, :] += cf_pred.reshape(-1, 3)[contact_idx, :]
-                    # seq_delta_p_1[i, :] = delta_p_1.reshape(-1, 3)[contact_idx, :]
+            for idx, contact in enumerate(contacts):
+                if body_name == contact["body1_name"]:
+                    seq_cf_actual[i, :] += contact_force_all.reshape(-1, 3)[idx, :]
+                    seq_cf_pred[i, :] += cf_pred.reshape(-1, 3)[idx, :]
+                    # seq_delta_p_1[i, :] = delta_p_1.reshape(-1, 3)[idx, :]
+
+                if i > 0:
+                    # velocity-level contact model
+                    d_cf_actual = seq_cf_actual[i, :] - seq_cf_actual[i - 1, :]
+                    seq_d_cf_actual[i, :] = d_cf_actual
+                    d_cf_pred = Ks @ contact_jaco @ delta_q.reshape(-1, 1)
+                    seq_d_cf_pred[i, :] += d_cf_pred[idx, :]  # notice the '+'
+
+    # plt.figure(figsize=(8, 5))
+    # plt.title("contact model")
+    # labels = ["x", "y", "z"]
+    # for i, n in enumerate(labels):
+    #     # 画实线 (actual)
+    #     plt.plot(t, seq_cf_actual[:, i], label=n)
+    #     # 画虚线 (pred)，颜色和前一条线一致
+    #     plt.plot(t, seq_cf_pred[:, i], linestyle="--", color=plt.gca().lines[-1].get_color(), label=f"pred_{n}")
+
+    # plt.xlabel("t")
+    # plt.ylabel("y")
+    # plt.legend()
+    # plt.grid(True)
+
+    # --------------------------------
+    # position-level contact model
+    plt.figure(figsize=(8, 5))
+    plt.title("position-level contact model")
+    labels = ["x", "y", "z"]
+
+    plt.plot(t, seq_cf_actual, label=labels)
+    plt.plot(t, seq_cf_pred, label=[f"pred_{n}" for n in labels])
+
+    plt.xlabel("t")
+    plt.ylabel("y")
+    plt.legend()
+    plt.grid(True)
+
+    # --------------------------------
+    # velocity-level contact model
+    plt.figure(figsize=(8, 5))
+    plt.title("velocity-level contact model")
 
     labels = ["x", "y", "z"]
-    for i, n in enumerate(labels):
-        # 画实线 (actual)
-        plt.plot(t, seq_cf_actual[:, i], label=n)
-        # 画虚线 (pred)，颜色和前一条线一致
-        plt.plot(t, seq_cf_pred[:, i], linestyle="--", color=plt.gca().lines[-1].get_color(), label=f"pred_{n}")
+    plt.plot(t, seq_d_cf_actual, label=labels)
+    plt.plot(t, seq_d_cf_pred, label=[f"pred_{n}" for n in labels])
 
     plt.xlabel("t")
     plt.ylabel("y")
@@ -276,7 +312,7 @@ if __name__ == "__main__":
 
     # -------------------------------
     plt.figure(figsize=(8, 5))
-    plt.title("contact force of each fingertip")
+    plt.title("contact force of each link")
 
     # 自定义优先级
     def sort_key(name):

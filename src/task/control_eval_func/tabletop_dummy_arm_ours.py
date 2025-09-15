@@ -127,6 +127,15 @@ class tabletopDummyArmOursEval(BaseEval):
                 else:
                     desired_sum_force = min(curr_sum_force, final_sum_force) + force_incre_step
 
+            # add tactile noises
+            noisy_contacts = copy.deepcopy(ho_contacts)
+            for idx, contact in enumerate(noisy_contacts):
+                force = contact["contact_force"][:3].copy()
+                sigma = np.abs(force) * self.configs.task.tactile_noise_level
+                noisy_force = force + np.random.normal(0, sigma, size=force.shape)
+                contact["contact_force"][:3] = noisy_force
+                noisy_contacts[idx] = contact
+
             t1 = time.time()
             res = self.grasp_ctrl.ctrl_opt3(
                 stage=stage,
@@ -136,7 +145,7 @@ class tabletopDummyArmOursEval(BaseEval):
                 target_q_f=target_qpos_f,
                 desired_sum_force=desired_sum_force,
                 last_dq_a=last_dq_a,
-                ho_contacts=ho_contacts,
+                ho_contacts=noisy_contacts,
                 grasp_matrix=grasp_matrix,
                 b_contact=True,
                 b_print_opt_details=b_debug,
