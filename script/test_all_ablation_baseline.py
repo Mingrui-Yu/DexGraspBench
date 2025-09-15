@@ -7,8 +7,8 @@ setting_names = ["dist_0", "dist_2"]
 hands = ["dummy_arm_shadow", "dummy_arm_allegro", "dummy_arm_leap_tac3d"]
 # methods = ["ours", "op", "bs1", "bs2", "bs3"]
 methods = ["ours"]
-# ablation_names = ["ab0", "ab1", "ab2", "ab3", "ab4"] # for "ours"
-ablation_names = ["ab6"] # for "ours"
+ablation_names = ["ab0", "ab1", "ab2", "ab3", "ab4", "ab5", "ab6", "ab7", "ab8", "ab9"] # for "ours"
+# ablation_names = ["ab8", "ab9", "ab2"] # for "ours"
 
 
 for setting in setting_names:
