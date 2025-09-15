@@ -58,8 +58,13 @@ control:
   
   Ke_scalar: 1e5 # approximate in mujoco: 1e5-1e6 (GPT)
   use_coupling: False # must be False in theory
+<<<<<<< HEAD
   tan_motion_pen_weight: 1e3 # DEBUG
   use_multi_contact_model: False
+=======
+  tan_motion_pen_weight: 1e3
+  use_multi_contact_model: True
+>>>>>>> 9e43121f527fba51c35e863a823eeec04ddecb0b
   stage2_penalize_contact_qda: False
 
   ab0: # no consideration of tan force
@@ -99,5 +104,6 @@ control:
 
 # evaluation setting
 offsets: [0.0] # unit: m
+tactile_noise_level: 0.0
 
 

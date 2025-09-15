@@ -32,9 +32,14 @@ def main():
     # hand_lst = ["shadow"]
     # hand_lst = ["shadow"]
 
+<<<<<<< HEAD
     exp_name = "learn_large"
     # method_lst = ["ours_ab2", "ours_ab8", "ours_ab9"]
     method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5", "ours_ab6", "ours_ab7", "ours_ab8", "ours_ab9"]
+=======
+    exp_name = "learn"
+    method_lst = ["ours_ab2"]
+>>>>>>> 9e43121f527fba51c35e863a823eeec04ddecb0b
 
     # exp_name = "learn_5k"
     # method_lst = ["op", "bs1", "bs2", "bs3", "ours_ab2"]
@@ -110,7 +115,9 @@ def main():
                 norm_wrench_mean[i_s, :, i_m], norm_wrench_std[i_s, :, i_m], n_valid[i_s, :, i_m]
             )
 
-            print(f"{setting_name} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, :, i_m])}")
+            print(
+                f"{setting_name} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, :, i_m])}"
+            )
             print(f"{setting_name} {method} total obj pos err: {total_pos_mean} +- {total_pos_std}")
             print(f"{setting_name} {method} total obj rot err: {total_rot_mean} +- {total_rot_std}")
             print(f"{setting_name} {method} total wrench err: {total_wrench_mean} +- {total_wrench_std}")
@@ -134,7 +141,9 @@ def main():
                     norm_wrench_mean[i_s, i_h, i_m], norm_wrench_std[i_s, i_h, i_m], n_valid[i_s, i_h, i_m]
                 )
 
-                print(f"{setting_name} {hand} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, i_h, i_m])}")
+                print(
+                    f"{setting_name} {hand} {method} total success rate: {total_success_rate}, n: {np.sum(n_valid[i_s, i_h, i_m])}"
+                )
                 print(f"{setting_name} {hand} {method} total obj pos err: {total_pos_mean} +- {total_pos_std}")
                 print(f"{setting_name} {hand} {method} total obj rot err: {total_rot_mean} +- {total_rot_std}")
                 print(f"{setting_name} {hand} {method} total wrench err: {total_wrench_mean} +- {total_wrench_std}")
