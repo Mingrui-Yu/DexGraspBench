@@ -87,8 +87,9 @@ class GraspController:
             self.tan_motion_pen_weight = configs.tan_motion_pen_weight
             self.use_multi_contact_model = configs.use_multi_contact_model
             self.stage2_penalize_contact_qda = configs.stage2_penalize_contact_qda
+            self.jaco_reference_frame =  configs.jaco_reference_frame
 
-        self.balance_thres = 0.4
+        self.balance_thres = 0.2 # DEBUG
         self.mu = 0.3  # friction coef
         if "shadow" in self.robot.name:
             self.final_sum_force = 15.0
@@ -117,8 +118,17 @@ class GraspController:
             body_name_lst.append(contact["body1_name"])
         self.robot_adaptor.compute_jaco_a(q_a)  # J(qd)
         body_jaco_a_lst = [self.robot_adaptor.get_frame_jaco(frame_name=name, type="body") for name in body_name_lst]
+        pose_a_lst = [self.robot_adaptor.get_frame_pose(frame_name=name) for name in body_name_lst]
         self.robot_adaptor.compute_jaco_a(q_f)  # J(q)
         body_jaco_f_lst = [self.robot_adaptor.get_frame_jaco(frame_name=name, type="body") for name in body_name_lst]
+        pose_f_lst = [self.robot_adaptor.get_frame_pose(frame_name=name) for name in body_name_lst]
+
+        if self.jaco_reference_frame:
+            for i in range(len(contacts)):
+                rot_f = pose_f_lst[i][:3, :3]
+                rot_a =  pose_a_lst[i][:3, :3]
+                delta_rot = rot_f.T @ rot_a
+                body_jaco_a_lst[i] = block_diag(delta_rot, delta_rot) @ body_jaco_a_lst[i]
 
         if self.use_multi_contact_model:
             for i, contact in enumerate(contacts):

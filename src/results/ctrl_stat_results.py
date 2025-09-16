@@ -27,20 +27,16 @@ def combine_mean_std(means, stds, counts):
 
 
 def main():
-    setting_lst = ["dist_0", "dist_2"]
+    setting_lst = ["dist_0"]
     hand_lst = ["shadow", "allegro", "leap_tac3d"]
     # hand_lst = ["shadow"]
     # hand_lst = ["shadow"]
 
-<<<<<<< HEAD
     exp_name = "learn_large"
-    # method_lst = ["ours_ab2", "ours_ab8", "ours_ab9"]
-    method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5", "ours_ab6", "ours_ab7", "ours_ab8", "ours_ab9"]
-=======
-    exp_name = "learn"
-    method_lst = ["ours_ab2"]
->>>>>>> 9e43121f527fba51c35e863a823eeec04ddecb0b
-
+    # method_lst = ["ours_ab2", "bs2"]
+    # method_lst = ["ours_ab0", "ours_ab1", "ours_ab2", "ours_ab3", "ours_ab4", "ours_ab5", "ours_ab6", "ours_ab7", "ours_ab8", "ours_ab9"]
+    method_lst = ["ours_ab2_n0", "ours_ab2_n1", "ours_ab2_n2", "ours_ab2_n5"]
+                  
     # exp_name = "learn_5k"
     # method_lst = ["op", "bs1", "bs2", "bs3", "ours_ab2"]
 
