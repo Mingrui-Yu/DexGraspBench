@@ -152,8 +152,7 @@ def task_control_stat(setting_name, hand, method):
 def main():
     setting_name = "dist_2"
     hand = "leap_tac3d"
-    method_lst = ["ours_ab2", "op", "bs1", "bs2", "bs3"]
-
+    method_lst = ["ours_ab2"]
     all_res = {}
 
     for method in method_lst:
@@ -162,67 +161,85 @@ def main():
     metrics = ["obj_pos", "obj_rot", "wrench"]
     ours = all_res["ours_ab2"]
     other_methods = [m for m in all_res.keys() if m != "ours_ab2"]
-
     top_n = 10  # 想看前10个显著差异样本
     thres_dct = {
-        "obj_pos": 0.003,
-        "obj_rot": 3,
+        "obj_pos": 0.002,
+        "obj_rot": 2,
         "wrench": 0.2,
     }
 
     # 存储每个指标的显著性排序
-    significant_cases = {}
-
+    mask_all = np.ones((len(ours["obj_pos"])), dtype=bool)
     for metric in metrics:
         ours_metric = ours[metric]
-        num_cases = len(ours_metric)
-
         thres = thres_dct[metric]
-
-        # 累加其他方法的差异
-        diff_scores = np.zeros(num_cases)
-        for m in other_methods:
-            diff = np.abs(ours_metric - all_res[m][metric])
-            # 如果 metric 是多维向量，比如 obj_pos 是 3D，可以先取 norm
-            if diff.ndim > 1:
-                diff = np.linalg.norm(diff, axis=-1)
-            diff_scores += diff  # 可以累加或取最大 np.maximum(diff_scores, diff)
-
-        # ---- 只保留 ours_metric < thres 的 case ----
         mask = ours_metric < thres
-        valid_indices = np.where(mask)[0]
-        valid_scores = diff_scores[mask]
+        mask_all = mask_all & mask
 
-        # 按差异从大到小排序
-        sorted_idx = valid_indices[np.argsort(-valid_scores)]
-        significant_cases[metric] = {
-            "indices": sorted_idx[:top_n],
-            "scores": valid_scores[np.argsort(-valid_scores)][:top_n],
-        }
+    valid_indices = np.where(mask_all)[0]
 
-    # 输出结果
-    for metric, info in significant_cases.items():
-        if metric == "wrench":
-            continue
-
-        print(f" -------------- Top {top_n} significant cases for {metric} (ours < thres): -------------- ")
-        for idx, score in zip(info["indices"], info["scores"]):
+    # 先把 case_id -> pos_id 列表存起来
+    case_dict = {}
+    for idx in valid_indices:
+        if setting_name == "dist_0":
+            # dist_0 只有 case_id，不需要 pos_id
+            case_id = idx
+            pos_id = None
+        elif setting_name == "dist_2":
             case_id = idx // 8
             pos_id = idx % 8
+        else:
+            raise ValueError(f"Unknown setting_name: {setting_name}")
 
-            print(f"case_id {case_id}, pos_id {pos_id}: score={score:.4f}")
-            for m in ["ours"] + other_methods:
-                line = [f"{m}"]
-                for met in metrics:
-                    val = all_res[m][met][idx] if m != "ours" else ours[met][idx]
-                    # 如果是向量，就逐元素打印
-                    if np.ndim(val) > 0:
-                        val_str = "[" + ", ".join(f"{v:.4f}" for v in np.ravel(val)) + "]"
-                    else:
-                        val_str = f"{val:.4f}"
-                    line.append(f"{met}={val_str}")
-                print(" | ".join(line))
-            print()
+        if case_id not in case_dict:
+            case_dict[case_id] = []
+        if pos_id is not None:
+            case_dict[case_id].append(pos_id)
+
+    # 输出
+    for case_id, pos_list in case_dict.items():
+        if setting_name == "dist_0":
+            print(f"case_id {case_id}:")
+        elif setting_name == "dist_2":
+            pos_str = ", ".join(str(p) for p in pos_list)
+            print(f"case_id {case_id}, pos_id(s) {pos_str}:")
+
+        # for m in ["ours"]:
+        #     line = [f"{m}"]
+        #     for met in metrics:
+        #         # 取其中一个 idx（多个 pos_id 时选第一个）
+        #         idx = case_id if setting_name == "dist_0" else case_id * 8 + pos_list[0]
+        #         val = all_res[m][met][idx] if m != "ours" else ours[met][idx]
+        #         if np.ndim(val) > 0:
+        #             val_str = "[" + ", ".join(f"{v:.4f}" for v in np.ravel(val)) + "]"
+        #         else:
+        #             val_str = f"{val:.4f}"
+        #         line.append(f"{met}={val_str}")
+        #     print(" | ".join(line))
+        # print()
+
+    # for idx in valid_indices:
+    #     if setting_name == "dist_0":
+    #         print(f"case_id: {idx}")
+    #     elif setting_name == "dist_2":
+    #         case_id = idx // 8
+    #         pos_id = idx % 8
+    #         print(f"case_id {case_id}, pos_id {pos_id}:")
+
+    # for m in ["ours"]:
+    #     line = [f"{m}"]
+    #     for met in metrics:
+    #         val = all_res[m][met][idx] if m != "ours" else ours[met][idx]
+    #         # 如果是向量，就逐元素打印
+    #         if np.ndim(val) > 0:
+    #             val_str = "[" + ", ".join(f"{v:.4f}" for v in np.ravel(val)) + "]"
+    #         else:
+    #             val_str = f"{val:.4f}"
+    #         line.append(f"{met}={val_str}")
+    #     print(" | ".join(line))
+    # print()
+
+    print(list(valid_indices))
 
 
 if __name__ == "__main__":

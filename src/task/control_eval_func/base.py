@@ -60,24 +60,21 @@ class BaseEval:
         squeeze_qpos = self.grasp_data["squeeze_qpos"].copy()
 
         # set the arm qpos of pregrasp_qpos to be the same as grasp_qpos
-        if (not self.configs.hand.mocap) and self.configs.task.arm_pregrasp_is_grasp:
+        if self.configs.task.arm_pregrasp_is_grasp:
             n_arm_dof = 6
             pregrasp_qpos[:n_arm_dof] = grasp_qpos[:n_arm_dof]
 
-        if (not self.configs.task.with_approaching) or self.configs.hand.mocap:
-            init_qpos = pregrasp_qpos
-            # adjust (larger) pregrasp hand qpos and (tighter) hand squeeze qpos
-            pregrasp_hand_qpos = pregrasp_qpos[n_arm_dof:]
-            grasp_hand_qpos = grasp_qpos[n_arm_dof:]
-            squeeze_hand_qpos = squeeze_qpos[n_arm_dof:]
-            t = self.configs.task.graspdata.pregrasp_t
-            init_qpos[n_arm_dof:] += t * (pregrasp_hand_qpos - grasp_hand_qpos)
-            t = self.configs.task.graspdata.squeeze_t
-            squeeze_qpos[n_arm_dof:] += t * (squeeze_hand_qpos - grasp_hand_qpos)
-        else:
-            init_qpos = self.grasp_data["approach_qpos"][0]
+        # adjust (larger) pregrasp hand qpos and (tighter) hand squeeze qpos
+        pregrasp_hand_qpos = pregrasp_qpos[n_arm_dof:]
+        grasp_hand_qpos = grasp_qpos[n_arm_dof:]
+        squeeze_hand_qpos = squeeze_qpos[n_arm_dof:]
+        t = self.configs.task.graspdata.pregrasp_t
+        pregrasp_qpos[n_arm_dof:] += t * (pregrasp_hand_qpos - grasp_hand_qpos)
+        t = self.configs.task.graspdata.squeeze_t
+        squeeze_qpos[n_arm_dof:] += t * (squeeze_hand_qpos - grasp_hand_qpos)
 
         # reset object and hand
+        init_qpos = pregrasp_qpos
         init_obj_pose = obj_pose.copy()
         ho_contact, hh_contact = self.mj_ho.get_contact_info(init_qpos, init_obj_pose)
         self.mj_ho.udpate_debug_viewer()
@@ -154,29 +151,40 @@ class BaseEval:
         # Compare the resulted object pose
         latter_obj_qpos = self.mj_ho.get_obj_pose()
         delta_pos, delta_angle = np_get_delta_qpos(pre_obj_qpos, latter_obj_qpos)
-        succ_flag = (delta_pos < eval_config.trans_thre) & (delta_angle < eval_config.angle_thre)
 
         if self.configs.task.debug_viewer or self.configs.task.debug_render:
-            print(succ_flag, delta_pos, delta_angle)
-            if self.configs.task.debug_render:
+            print(delta_pos, delta_angle)
+            # save rendered video
+            if self.configs.task.debug_render and len(self.mj_ho.debug_images) > 10:
+                # save mp4
                 debug_path = self.input_npy_path.replace(input_dir, self.configs.task.debug_dir).replace(
-                    ".npy", f"/{method_name}.gif"
+                    ".npy", f"{method_name}_{file_suffix}.mp4"
                 )
+                # path = self.input_npy_path.replace(input_dir, self.configs.task.debug_dir)  # DEBUG
+                # parts = path.split("/")
+                # prefix = "/".join(parts[:4])
+                # debug_path = os.path.join(prefix, f"{method_name}_{file_suffix}.mp4")
+
                 os.makedirs(os.path.dirname(debug_path), exist_ok=True)
-                imageio.mimsave(debug_path, self.mj_ho.debug_images)
-                print("Save GIF to ", debug_path)
+                # 取 50Hz 图片中的每隔一帧，变成 25Hz
+                frames = self.mj_ho.debug_images[::2]
+                with imageio.get_writer(debug_path, fps=25, codec="libx264", quality=8) as writer:
+                    for img in frames:
+                        writer.append_data(img)
+                print("Save MP4 (25Hz) to ", debug_path)
+
                 # save all images
-                debug_dir = self.input_npy_path.replace(input_dir, self.configs.task.debug_dir).replace(
-                    ".npy", f"/{method_name}/"
-                )
-                os.makedirs(debug_dir, exist_ok=True)
-                for i, img in enumerate(self.mj_ho.debug_images):
-                    frame_path = os.path.join(debug_dir, f"frame_{i:04d}.png")
-                    imageio.imwrite(frame_path, img)
-                print("Save images to ", debug_path)
+                # debug_dir = self.input_npy_path.replace(input_dir, self.configs.task.debug_dir).replace(
+                #     ".npy", f"/{method_name}/"
+                # )
+                # os.makedirs(debug_dir, exist_ok=True)
+                # for i, img in enumerate(self.mj_ho.debug_images):
+                #     frame_path = os.path.join(debug_dir, f"frame_{i:04d}.png")
+                #     imageio.imwrite(frame_path, img)
+                # print("Save images to ", debug_path)
 
     def run(self):
-        # test with object position uncertainty
+        # with object position uncertainty (8 planar directions)
         directions = np.array(
             [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]],
             dtype=float,
@@ -185,14 +193,15 @@ class BaseEval:
 
         for obj_offset_dist in self.configs.task.offsets:
             # compute object offsets
-            if obj_offset_dist == 0:
+            if obj_offset_dist == 0:  # no object position uncertainty
                 shifted_obj_poses = np.tile(self.grasp_data["obj_pose"].copy(), (1, 1))
-            else:
+            else:  # perturb the object position
                 shifted_obj_poses = np.tile(self.grasp_data["obj_pose"].copy(), (len(directions), 1))
                 shifted_obj_poses[:, 0:2] += obj_offset_dist * directions
 
             for i in range(shifted_obj_poses.shape[0]):
-                # if self.configs.task.debug_viewer or self.configs.task.debug_render:
+                # #  to run a specific pos id
+                # if obj_offset_dist != 0 and (self.configs.task.debug_viewer or self.configs.task.debug_render):
                 #     if i not in [6]:
                 #         continue
 

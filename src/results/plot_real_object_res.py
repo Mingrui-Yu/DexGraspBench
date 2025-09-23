@@ -51,9 +51,37 @@ if __name__ == "__main__":
     grasp_ctrl = GraspController(None, robot, robot_adaptor)
 
     # obj_lst = ["blue_box", "alcohol_bottle", "white_tape", "six_god", "banana", "mustard", "cheezit", "glass"]
-    obj_lst = ["glass_i", "six_god_t"]
+    obj_lst = [
+        "six_god",
+        "blue_box",
+        "banana",
+        "mustard",
+        "white_tape",
+        "alcohol_bottle",
+        "cheezit",
+        "glass",
+        "glass_t",
+        "glass_i",
+        "six_god_t",
+        "six_god_i",
+    ]
+    obj_label_lst = [
+        "Repellent",
+        "Blue box",
+        "Banana",
+        "Mustard",
+        "Tape",
+        "Spray",
+        "Cheezit",
+        "Glass vase",
+        "Glass vase \n(pos 1)",
+        "Glass vase \n(pos 2)",
+        "Repellent \n(pos 1)",
+        "Repellent \n(pos 2)",
+    ]
+    # obj_lst = ["glass_i", "glass_t", "six_god_i", "six_god_t"]
     # obj_lst = ["glass"]
-    method_lst = ["ours", "op", "bs1"]
+    method_lst = ["op", "bs1", "ours"]
     # method_lst = ["ours_t2", "ours_t4", "ours_t8", "ours_no_couple", "ours_mu1"]
 
     n_eval_step = 20
@@ -156,3 +184,132 @@ if __name__ == "__main__":
         print(f"key: {key}")
         for i_m, method in enumerate(method_lst):
             print(f"method: {method}, {np.mean(data[:, i_m])} +- {np.std(data[:, i_m])}")
+
+    from matplotlib import rcParams
+
+    # from mr_utils.utils_plot import plotHistogram
+    import matplotlib.colors as mcolors
+
+    params = {
+        "font.family": "Times New Roman",
+        #                     # 'font.style':'italic',
+        #                     'font.weight':'normal', #or 'bold'
+        "mathtext.fontset": "stix",
+        "font.size": 20,  # or large,small
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
+    rcParams.update(params)
+
+    def lighten_color(color, amount=0.5):
+        try:
+            c = mcolors.to_rgb(color)
+        except ValueError:
+            raise ValueError(f"Invalid color: {color}")
+        return tuple((1 - amount) * x + amount * 1 for x in c)
+
+    def plotHistogram(  # noqa: PLR0913
+        data,
+        x_labels,
+        bar_labels,
+        bar_colors,
+        data_bottom=None,
+        x_width=0.8,
+        bar_interval_ratio=0.0,
+        border_width=0.0,
+        edgecolor="k",
+        linewidth=1,
+        use_default_setting=True,
+        scatter_points=None,
+        scatter_colors="k",
+        scatter_marker="D",
+        scatter_zorder=2,
+    ):
+        """
+        Input:
+            data: shape (n_x_axis, n_bars_per_x)
+            scatter_points: shape (n_x_axis, n_bars_per_x, n_points_per_bar)
+        """
+        data = np.array(data)
+        if data.shape[0] != len(x_labels) or data.shape[1] != len(bar_labels):
+            print("The dimension of input data is wrong.")
+            return False
+
+        if data_bottom is None:
+            data_bottom = np.zeros(data.shape)
+        elif data_bottom.shape != data.shape:
+            print("The dimension of input data_bottom is wrong.")
+            return False
+
+        x = np.arange(len(x_labels))
+        m = len(x_labels)
+        n = len(bar_labels)
+        if n == 1:
+            bar_interval = 0.0
+        else:
+            bar_interval = (x_width * bar_interval_ratio) / float(n - 1)
+        bar_width = (x_width - (n - 1) * bar_interval) / n
+
+        plt.bar(
+            x + (n - 1) / 2.0 * (bar_width + bar_interval),
+            np.zeros((data.shape[0],)),
+            width=bar_width,
+            tick_label=x_labels,
+        )
+        for i in range(n):
+            plt.bar(
+                x + i * (bar_width + bar_interval),
+                data[:, i],
+                bottom=data_bottom[:, i],
+                width=bar_width,
+                label=bar_labels[i],
+                color=bar_colors[i],
+                edgecolor=edgecolor,
+                linewidth=linewidth,
+                yerr=np.std(scatter_points[:, i, :], axis=-1),
+                capsize=5,
+            )
+
+        if use_default_setting:
+            plt.xlim(
+                [
+                    0 - bar_width / 2.0 - border_width,
+                    (m - 1) + (n - 1) * (bar_width + bar_interval) + bar_width / 2.0 + border_width,
+                ]
+            )
+
+    fig = plt.figure(figsize=(20, 10))
+
+    x_labels = obj_label_lst
+    bar_colors = ["#1f77b4", "#2ca02c", "#ff7f0e"]
+    bar_colors = [lighten_color(c, 0.3) for c in bar_colors]
+    bar_labels = ["Open-loop", "Feedback control", "Ours"]
+    titles = [
+        r"Object position error before lifting (mm) $\downarrow$",
+        r"Object rotation error before lifting $(^{\circ}) \downarrow$",
+        r"Object rotation error after lifting $(^{\circ}) \downarrow$",
+        r"Normalized wrench $\downarrow$",
+    ]
+
+    res["obj_pos_err_s2"] = np.array(res["obj_pos_err_s2"]) * 1000  # change unit to mm
+
+    for i, key in enumerate(res.keys()):
+        plt.subplot(4, 1, i + 1)
+
+        plt.title(titles[i])
+
+        plotHistogram(
+            np.mean(res[key], axis=-1),
+            x_labels=x_labels,
+            bar_labels=bar_labels,
+            bar_colors=bar_colors,
+            scatter_points=np.array(res[key]),
+        )
+
+        if i == 0:
+            plt.legend(loc="upper left")
+        plt.grid()
+
+    plt.subplots_adjust(left=0.03, bottom=0.07, right=0.995, top=0.95, wspace=0.15, hspace=0.45)
+
+    plt.show()

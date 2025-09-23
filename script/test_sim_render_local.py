@@ -1,12 +1,14 @@
 import subprocess
 
 # Parameters
-exp_name = "learn_large"
+exp_name = "learn"
 max_num = -1
-setting_names = ["dist_0", "dist_2"]  # "dist_0" or "dist_2"
-hands = ["dummy_arm_shadow", "dummy_arm_allegro", "dummy_arm_leap_tac3d"]
+setting_names = ["dist_2"]
+hands = ["dummy_arm_shadow"]
 methods = ["ours"]
+# methods = ["ours", "op", "bs1", "bs2", "bs3"]
 ablation_names = ["ab2"]  # for "ours"
+
 
 for setting in setting_names:
     if setting == "dist_0":
@@ -37,22 +39,9 @@ for setting in setting_names:
                     f"task.offsets={offsets}",
                     "task.input_data=grasp_dir",
                     "task.debug_viewer=False",
+                    "task.debug_render=True",
                     f"task.max_num={max_num}",
-                ]
-                print("Running:", " ".join(cmd))
-                subprocess.run(cmd, check=True)
-
-                # Control stat
-                cmd = [
-                    "python",
-                    "src/main.py",
-                    "setting=tabletop",
-                    f"hand={hand}",
-                    "task=control_stat",
-                    f"exp_name={exp_name}",
-                    f"task.method={method}",
-                    f"task.ablation_name={ab_name}",
-                    f"task.setting_name={setting}",
+                    "n_worker=12",
                 ]
                 print("Running:", " ".join(cmd))
                 subprocess.run(cmd, check=True)

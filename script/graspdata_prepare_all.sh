@@ -1,3 +1,4 @@
+# generate grasp dataset on the server
 
 # shadow
 python src/main.py setting=tabletop hand=shadow task=format exp_name=learn_5k task.data_name=Learning task.max_num=1000 task.data_path=../DexLearn/output/bodex_tabletop_shadow_nflow_debug0/tests/step_045000

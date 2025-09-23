@@ -1,55 +1,50 @@
 # DexGraspBench
 
-A standard and unified simulation benchmark in [MuJoCo](https://github.com/google-deepmind/mujoco/) for dexterous grasping, aimed at **enabling a fair comparison across different grasp synthesis methods**, proposed in *BODex: Scalable and Efficient Robotic Dexterous Grasp Synthesis Using Bilevel Optimization [ICRA 2025]*.
-
-[Project page](https://pku-epic.github.io/BODex/) ｜ [Paper](https://arxiv.org/abs/2412.16490) | [Grasp synthesis code](https://github.com/JYChen18/BODex)
-
-## Introduction
-
-### Main Usage
-- Replay and test **open-loop** grasping poses/trajectories in parallel.
-
-- Each grasping data point only needs to include:
-  - Object (must be pre-processed by [MeshProcess](https://github.com/JYChen18/MeshProcess)): `obj_scale`, `obj_pose`, `obj_path`.
-  - Hand: `approach_qpos` (optional), `pregrasp_qpos`, `grasp_qpos`, `squeeze_qpos`.
-
-### Highlight
-
-- **Comprehensive Evaluation Metrics**: Includes simulation success rate, analytic force closure metrics, penetration depth, contact quality, data diversity, and more.
-- **Diverse Experimental Settings**: Covers various robotic hands (e.g., Allegro, Shadow, Leap, UR10e+Shadow), data formats (e.g., motion sequences, static poses), and scenarios (e.g., tabletop lifting, force-closure testing).
-- **Multiple Baseline Methods**: Includes optimization-based grasp synthesis approaches (e.g., [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release), [BODex](https://pku-epic.github.io/BODex/)) and data-driven baselines (e.g., CVAE, Diffusion Model, Normalizing Flow).
-- **Reproducible and Standardized Testing**: The hand assets are sourced from [MuJoCo_Menagerie](https://github.com/google-deepmind/mujoco_menagerie), with modification details provided in the `assets/hand` directory. 
+The code base of our tactile-grasp work.
 
 ## Getting Started
 
 ### Installation
 1. Clone the third-party library [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie).
-```
-git submodule update --init --recursive --progress
-```
-2. Install the python environment via [Anaconda](https://www.anaconda.com/). 
-```bash
-conda create -n DGBench python=3.10 
-conda activate DGBench
-pip install numpy==1.26.4
-conda install pytorch==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia 
-pip install mujoco==3.3.2
-pip install trimesh
-pip install hydra-core
-pip install transforms3d
-pip install matplotlib
-pip install scikit-learn
-pip install usd-core
-pip install imageio
-pip install 'qpsolvers[clarabel]'
+  ```
+  git submodule update --init --recursive --progress
+  ```
+2. Third party:
+  ```bash
+  cd third_party
+  # pytorch_kinematics
+  git clone git@github.com:DexGrasp-TH/pytorch_kinematics.git
+  cd pytorch_kinematics
+  git checkout v1.0.0
+  pip install -e .
 
-# added by mingrui
-pip install tqdm
-conda install pinocchio -c conda-forge
-```
+  # mr_utils
+  cd third_party
+  git clone git@github.com:Mingrui-Yu/utils_python.git
+  cd utils_python
+  pip install -e .
+  ```
+3. Install the python environment via [Anaconda](https://www.anaconda.com/). 
+  ```bash
+  conda create -n DGBench python=3.10 
+  conda activate DGBench
+  pip install numpy==1.26.4
+  conda install pytorch==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia 
+  pip install mujoco==3.3.2
+  pip install trimesh
+  pip install hydra-core
+  pip install transforms3d
+  pip install matplotlib
+  pip install scikit-learn
+  pip install usd-core
+  pip install imageio
+  pip install 'qpsolvers[clarabel]'
+  pip install tqdm
+  conda install pinocchio -c conda-forge
+  ```
 
-### (Optional) Object Preparation
-If you need the object assets used in [BODex](https://pku-epic.github.io/BODex/), please download our pre-processed object assets `DGN_2k_processed.zip` from [here](https://huggingface.co/datasets/JiayiChenPKU/BODex) and organize the unzipped folders as below. 
+### Object Preparation
+For the object assets used in [BODex](https://pku-epic.github.io/BODex/), please download our pre-processed object assets `DGN_2k_processed.zip` from [here](https://huggingface.co/datasets/JiayiChenPKU/BODex) and organize the unzipped folders as below. 
 ```
 assets/object/DGN_2k
 |- processed_data
@@ -62,45 +57,64 @@ assets/object/DGN_2k
 |  |- all.json
 |  |_ ...
 ```
-If you need the object assets used in [Dexonomy](https://pku-epic.github.io/Dexonomy/), please download and organize `DGN_5k` and `objaverse_5k` from [here](https://huggingface.co/datasets/JiayiChenPKU/Dexonomy).
 
-### Running
+## Usage
 
-We have provided several scripts, which optionally includes format conversion, evaluation, statistic calculation, and visualization with [OpenUSD](https://github.com/PixarAnimationStudios/OpenUSD) or OBJ files.
+### Complete pipeline
+1. Use BODex to synthesize grasp poses.
+1. Use DexLearn to train a generative network.
+1. Use DexLearn to sample grasp poses from single-view point clouds.
+1. Use this repo to evaluate the grasping execution methods.
 
-For a quick start, some example data is provided in the `output/example_shadow` directory, which can be directly evaluated by
+### Evaluation of the grasping execution methods
+Complete procedures for each hand:
 ```bash
-bash script/example.sh
+bash script/test_learning_dummy_arm_shadow.sh
+bash script/test_learning_dummy_arm_allegro.sh
+bash script/test_learning_dummy_arm_leap_tac3d.sh
 ```
+Each includes the following tasks:
+* format: convert the data format.
+* dummy_arm_qpos: calculate the qpos of the dummy_arm via IK.
+* control_eval: evaluate the execution method and save the manipulation data.
+* control_stat: compute and save the statistic results.
 
-To evaluate the synthesized grasps of [BODex](https://github.com/JYChen18/BODex),
+Evaluation dataset:
+* learn: 100 grasps for each hand.
+* learn_large: 1k grasps for each hand.
+* learn_5k: 5k grasps for each hand.
+
+After generating the qpos of dummy arms, the control_eval and control_stat under different conditions can be conveniently run via the following scripts:
 ```bash
-bash script/test_BODex_shadow.sh
+# local PC
+python script/test_all_ablation_baseline_local.py # need internal modification of the settings
+# server
+python script/test_all_ablation_baseline.py # need internal modification of the settings
 ```
 
-To evaluate the synthesized grasps of [DexLearn](https://github.com/JYChen18/DexLearn),
-```bash
-bash script/test_learning_shadow.sh
-```
+To run a specific case, change the case indices in `src/task/control_eval.py`
+and the position indices in `src/task/control_eval_func/base.py`. 
 
-To visualize the synthesized grasps of [Dexonomy](https://github.com/JYChen18/Dexonomy),
-```bash
-bash script/vis_Dexonomy.sh
-```
+We use `ab2` as the default parameters of `ours`.
 
-## Changelog
-The `main` branch serves as our standard benchmark, with some adjustments to the settings compared to the [BODex](https://arxiv.org/abs/2412.16490) paper, aimed at improving the practicality. Key changes include increasing the object mass from 30g to 100g, raising the hand's kp from 1 to 5, and supporting more diverse object assets. One can further reduce friction coefficients `miu_coef` (currently 0.6 for tangential and 0.02 for torsional) to increase difficulty.
+### Video rendering
+1. Change the viewpoint specified in `src/util/hand_util.py`.
+1. Change the video type and save path in `src/task/control_eval_func/base.py`.
+1. Run:
+    ```bash
+    python script/test_sim_render_local.py # need internal modification of the settings
+    ```
 
-The original benchmark version is available in the `baseline` branch. This branch also includes code to test other grasp synthesis baselines, such as [DexGraspNet](https://github.com/PKU-EPIC/DexGraspNet), [FRoGGeR](https://github.com/alberthli/frogger), [SpringGrasp](https://github.com/Stanford-TML/SpringGrasp_release).
+### Visualze static grasps via trimesh
+The scripts are at `script/quick_grasp_vis`.
+
+## Tips
+* The current code does not fully consider underactuated hands. Need improvement.
 
 
-## Citation
-If you find this project useful, please consider citing:
-```
-@article{chen2024bodex,
-  title={BODex: Scalable and Efficient Robotic Dexterous Grasp Synthesis Using Bilevel Optimization},
-  author={Chen, Jiayi and Ke, Yubin and Wang, He},
-  journal={arXiv preprint arXiv:2412.16490},
-  year={2024}
-}
-```
+
+
+
+
+
+

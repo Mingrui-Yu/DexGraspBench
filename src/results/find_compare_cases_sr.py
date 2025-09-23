@@ -28,12 +28,12 @@ def combine_mean_std(means, stds, counts):
 
 def main():
     exp_name = "learn"
-    setting_name = "dist_2"
+    setting_name = "dist_0"
     hand_lst = [
-        "shadow",
+        "leap_tac3d",
     ]
-    method_lst = ["ours_ab2", "bs2"]
-    # method_lst = ["ours_ab2", "op", "bs1", "bs2", "bs3"]
+    method_lst = ["ours_ab2", "op", "bs1", "bs2", "bs3"]
+    # method_lst = ["ours_ab2", "op"]
 
     failure_cases = {}
 
@@ -62,13 +62,17 @@ def main():
     # 按失败次数排序（降序）
     sorted_cases = sorted(case_fail_counts.items(), key=lambda x: x[1], reverse=True)
 
-    if setting_name == "dist_2":
+    if setting_name == "dist_0":
+        for i, (case, count) in enumerate(sorted_cases):
+            print(f"case {case}: failed in {count}/{len(other_methods)} other methods")
+
+    elif setting_name == "dist_2":
         case_id = [n // 8 for n, _ in sorted_cases]
         pos_id = [n % 8 for n, _ in sorted_cases]
 
-    print("Cases where ours_ab2 succeeded but others failed (sorted):")
-    for i, (case, count) in enumerate(sorted_cases):
-        print(f"case {case_id[i]} pos {pos_id[i]}: failed in {count}/{len(other_methods)} other methods")
+        print("Cases where ours_ab2 succeeded but others failed (sorted):")
+        for i, (case, count) in enumerate(sorted_cases):
+            print(f"case {case_id[i]} pos {pos_id[i]}: failed in {count}/{len(other_methods)} other methods")
 
 
 if __name__ == "__main__":

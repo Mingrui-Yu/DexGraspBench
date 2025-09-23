@@ -3,6 +3,10 @@ from pathlib import Path
 
 from datetime import datetime
 
+"""
+Check the synthesis progress of BODex.
+"""
+
 # 获取当前时间
 now = datetime.now()
 # 或格式化输出，例如：2025-08-11 11:15:30
@@ -22,10 +26,10 @@ missing_files = []
 for input_file in input_files:
     # 相对路径（去掉 input_root 前缀）
     rel_path = input_file.relative_to(input_root)
-    
+
     # 输出文件路径
     output_file = output_root / rel_path.parent / f"{input_file.stem}.npy"
-    
+
     if output_file.is_file():
         done += 1
     else:

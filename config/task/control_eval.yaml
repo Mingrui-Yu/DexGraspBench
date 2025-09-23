@@ -8,20 +8,7 @@ debug_dir: ${save_dir}/debug
 simulation_metrics: 
   max_pene: 0.005  # If the initial hand penetrates the object too much, regard it as a failure
   max_force: 1.0
-  trans_thre: 0.05
-  angle_thre: 15
 
-analytic_fc_metrics: 
-  contact_tip_only: True 
-  contact_threshold: 0.005
-  type: ['qp', 'qp_dfc', 'q1', 'tdg', 'dfc']
-
-pene_contact_metrics: 
-  contact_margin: 0.01  # unit: m. Max contact distance.
-  contact_threshold: 0.002
-
-# added by mingrui
-with_approaching: False
 arm_pregrasp_is_grasp: True
 method: "op" # "op" or "ours"
 input_data: "succ_dir" # "grasp_dir" or "succ_dir"
@@ -29,6 +16,10 @@ input_data: "succ_dir" # "grasp_dir" or "succ_dir"
 graspdata:
   pregrasp_t: 2 # >0
   squeeze_t: 0 # >0
+
+# evaluation setting
+offsets: [0.0] # unit: m; 0.00 or 0.02
+tactile_noise_level: 0.0
 
 # params of our controller
 control:
@@ -90,16 +81,11 @@ control:
   ab7: # lower tan_motion_pen_weight
     tan_motion_pen_weight: 1e2
 
-  ab8: # not use multi contact model
+  ab8: # use multi contact model
     use_multi_contact_model: True
     stage2_penalize_contact_qda: True
 
   ab9:
     stage2_penalize_contact_qda: True
-  
-
-# evaluation setting
-offsets: [0.0] # unit: m
-tactile_noise_level: 0.0
 
 

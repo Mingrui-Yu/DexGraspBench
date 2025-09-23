@@ -48,7 +48,6 @@ def task_control_eval(configs):
     skip_num = init_num - len(input_path_lst)
     input_path_lst = sorted(input_path_lst)
     if configs.task.max_num > 0:
-        # input_path_lst = input_path_lst[: configs.task.max_num]
         input_path_lst = np.random.permutation(input_path_lst)[: configs.task.max_num]
         input_path_lst = sorted(input_path_lst)
 
@@ -60,8 +59,8 @@ def task_control_eval(configs):
     iterable_params = zip(input_path_lst, [configs] * len(input_path_lst))
     if configs.task.debug_viewer or configs.task.debug_render:
         for i, ip in enumerate(iterable_params):
+            # to run a specific case
             if i >= 0:
-                # if i in [56]:
                 print(f"grasp sample id: {i}")
                 safe_eval_one(ip)
     else:
@@ -69,8 +68,6 @@ def task_control_eval(configs):
             result_iter = pool.imap_unordered(safe_eval_one, iterable_params)
             results = list(result_iter)
 
-    # control_lst = glob(os.path.join(configs.control_dir, "**/*.npy"), recursive=True)
-    # logging.info(f"Evaluate controller on {len(control_lst)} grasps in {configs.save_dir}.")
     logging.info("Finish control evaluation")
 
     return

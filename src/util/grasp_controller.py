@@ -1,26 +1,15 @@
 from scipy.optimize import minimize
 from scipy.linalg import block_diag
 import numpy as np
-import time
 import os
-import torch
-from torch.autograd.functional import jacobian as torch_jaco
 from mr_utils.utils_calc import (
     isometry3dToPosQuat,
     isometry3dToPosOri,
     sciR,
-    transformPositions,
     skew,
-    mapping_from_space_avel_to_dquat,
 )
-from mr_utils.utils_torch import matrix_to_quaternion, quaternion_angular_error
-
-try:
-    from .robot_adaptor import RobotAdaptor
-    from .robots.base import RobotFactory, Robot, ArmHand
-except:
-    from robot_adaptor import RobotAdaptor
-    from robots.base import RobotFactory, Robot, ArmHand
+from .robot_adaptor import RobotAdaptor
+from .robots.base import RobotFactory, Robot, ArmHand
 
 
 class GraspController:
@@ -47,7 +36,7 @@ class GraspController:
         if configs:
             ab_name = configs.ablation_name
             if ab_name not in configs:
-                raise ValueError
+                raise ValueError("Have not specified the ablation name.")
 
             # replace the parameters from the ablation setting
             for key in configs[ab_name]:
@@ -87,9 +76,9 @@ class GraspController:
             self.tan_motion_pen_weight = configs.tan_motion_pen_weight
             self.use_multi_contact_model = configs.use_multi_contact_model
             self.stage2_penalize_contact_qda = configs.stage2_penalize_contact_qda
-            self.jaco_reference_frame =  configs.jaco_reference_frame
+            self.jaco_reference_frame = configs.jaco_reference_frame
 
-        self.balance_thres = 0.2 # DEBUG
+        self.balance_thres = 0.2
         self.mu = 0.3  # friction coef
         if "shadow" in self.robot.name:
             self.final_sum_force = 15.0
@@ -109,6 +98,9 @@ class GraspController:
         return np.linspace(qpos1, qpos2, step + 1)[1:]
 
     def Ks(self, q_a, q_f, contacts):
+        """
+        Compute Ks.
+        """
         I3 = np.eye(3)
         hand_ndoa = self.robot.hand.n_doa
 
@@ -125,122 +117,144 @@ class GraspController:
 
         if self.jaco_reference_frame:
             for i in range(len(contacts)):
-                rot_f = pose_f_lst[i][:3, :3]
-                rot_a =  pose_a_lst[i][:3, :3]
-                delta_rot = rot_f.T @ rot_a
+                delta_rot = pose_f_lst[i][:3, :3].T @ pose_a_lst[i][:3, :3]
                 body_jaco_a_lst[i] = block_diag(delta_rot, delta_rot) @ body_jaco_a_lst[i]
 
-        if self.use_multi_contact_model:
-            for i, contact in enumerate(contacts):
-                cp_local = contact["contact_pos_local"].reshape(-1, 1)  # p_B in A
-                cf_local = contact["contact_frame_local"].reshape(3, 3)  # R_B in A
-                Trans = np.block([[I3, -skew(cp_local)]])
-                # arm-hand
-                body_jaco_a = body_jaco_a_lst[i]
-                body_jaco_f = body_jaco_f_lst[i]
-                contact_jaco_a = cf_local.T @ Trans @ body_jaco_a  # J_B in B (translation part)
-                contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
-                contact["jaco_a"] = contact_jaco_a
-                contact["jaco_f"] = contact_jaco_f
+        # --- Compute per-contact Jacobians ---
+        for i, c in enumerate(contacts):
+            cp_local = c["contact_pos_local"].reshape(-1, 1)
+            cf_local = c["contact_frame_local"].reshape(3, 3)
+            Trans = np.block([[I3, -skew(cp_local)]])
+            body_jaco_f = body_jaco_f_lst[i]
+            body_jaco_a = body_jaco_a_lst[i]
+            contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
+            contact_jaco_a = cf_local.T @ Trans @ body_jaco_a
 
-                # only hand
-                contact_jaco_ha = contact_jaco_a[:, -hand_ndoa:]
-                contact_jaco_hf = contact_jaco_f[:, -hand_ndoa:]
-                contact["jaco_ha"] = contact_jaco_ha
-                contact["jaco_hf"] = contact_jaco_hf
+            if self.jaco_reference_frame:
+                # adjust J(qd) to be defined in the local contact frame of q;
+                # otherwise, it is in the local contact frame of qd.
+                delta_rot = pose_f_lst[i][:3, :3].T @ pose_a_lst[i][:3, :3]
+                contact_jaco_a = delta_rot @ contact_jaco_a
 
-                contacts[i] = contact
+            c["jaco_a"], c["jaco_f"] = contact_jaco_a, contact_jaco_f
+            c["jaco_ha"], c["jaco_hf"] = contact_jaco_a[:, -hand_ndoa:], contact_jaco_f[:, -hand_ndoa:]
+            contacts[i] = c
 
+        # --- Compute Ks ---
+        if self.use_multi_contact_model:  # if consider multiple contact on the same finger
             n_con = len(contacts)
             I_stack = np.eye(3 * n_con)
             Ke_stack = block_diag(*([self.Ke] * n_con))
-            J_a_stack = np.concatenate([contact["jaco_a"] for contact in contacts], axis=0)
-            J_f_stack = np.concatenate([contact["jaco_f"] for contact in contacts], axis=0)
+            J_a_stack = np.concatenate([c["jaco_a"] for c in contacts], axis=0)
+            J_f_stack = np.concatenate([c["jaco_f"] for c in contacts], axis=0)
             Kr_inv_stack = J_a_stack @ self.Kp_inv @ J_f_stack.T
             Ks_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_inv_stack) @ Ke_stack
 
-            J_ha_stack = np.concatenate([contact["jaco_ha"] for contact in contacts], axis=0)
-            J_hf_stack = np.concatenate([contact["jaco_hf"] for contact in contacts], axis=0)
+            J_ha_stack = np.concatenate([c["jaco_ha"] for c in contacts], axis=0)
+            J_hf_stack = np.concatenate([c["jaco_hf"] for c in contacts], axis=0)
             Kr_h_inv_stack = J_ha_stack @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ J_hf_stack.T
             Ks_h_stack = np.linalg.inv(I_stack + Ke_stack @ Kr_h_inv_stack) @ Ke_stack
-
         else:
             for i, contact in enumerate(contacts):
-                cp_local = contact["contact_pos_local"].reshape(-1, 1)  # p_B in A
-                cf_local = contact["contact_frame_local"].reshape(3, 3)  # R_B in A
-                Trans = np.block([[I3, -skew(cp_local)]])
-                # arm-hand
-                body_jaco_a = body_jaco_a_lst[i]
-                body_jaco_f = body_jaco_f_lst[i]
-                contact_jaco_a = cf_local.T @ Trans @ body_jaco_a  # J_B in B (translation part)
-                contact_jaco_f = cf_local.T @ Trans @ body_jaco_f
+                contact_jaco_a = contact["jaco_a"]
+                contact_jaco_f = contact["jaco_f"]
                 if self.Kr_use_two_jaco_a:
                     Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_a.T
                 else:
                     Kr_inv = contact_jaco_a @ self.Kp_inv @ contact_jaco_f.T
                 Ks = np.linalg.inv(I3 + self.Ke @ Kr_inv) @ self.Ke  # in contact local frame
                 contact["Ks"] = Ks
-                contact["jaco_a"] = contact_jaco_a
-                contact["jaco_f"] = contact_jaco_f
-
                 # only hand
                 contact_jaco_ha = contact_jaco_a[:, -hand_ndoa:]
                 contact_jaco_hf = contact_jaco_f[:, -hand_ndoa:]
                 Kr_h_inv = contact_jaco_ha @ self.Kp_inv[-hand_ndoa:, -hand_ndoa:] @ contact_jaco_hf.T
                 Ks_h = np.linalg.inv(I3 + self.Ke @ Kr_h_inv) @ self.Ke  # in contact local frame
                 contact["Ks_h"] = Ks_h
-                contact["jaco_ha"] = contact_jaco_ha
-                contact["jaco_hf"] = contact_jaco_hf
-
                 contacts[i] = contact
 
-            Ks_stack = block_diag(*[contact["Ks"] for contact in contacts])
-            J_a_stack = np.concatenate([contact["jaco_a"] for contact in contacts], axis=0)
-            J_f_stack = np.concatenate([contact["jaco_f"] for contact in contacts], axis=0)
+            Ks_stack = block_diag(*[c["Ks"] for c in contacts])
+            J_a_stack = np.concatenate([c["jaco_a"] for c in contacts], axis=0)
+            J_f_stack = np.concatenate([c["jaco_f"] for c in contacts], axis=0)
+            Ks_h_stack = block_diag(*[c["Ks_h"] for c in contacts])
+            J_ha_stack = np.concatenate([c["jaco_ha"] for c in contacts], axis=0)
+            J_hf_stack = np.concatenate([c["jaco_hf"] for c in contacts], axis=0)
 
-            Ks_h_stack = block_diag(*[contact["Ks_h"] for contact in contacts])
-            J_ha_stack = np.concatenate([contact["jaco_ha"] for contact in contacts], axis=0)
-            J_hf_stack = np.concatenate([contact["jaco_hf"] for contact in contacts], axis=0)
-
-        stacked = {}
-        stacked["Ks"] = Ks_stack
-        stacked["jaco_a"] = J_a_stack
-        stacked["jaco_f"] = J_f_stack
-
-        stacked["Ks_h"] = Ks_h_stack
-        stacked["jaco_ha"] = J_ha_stack
-        stacked["jaco_hf"] = J_hf_stack
+        stacked = {
+            "Ks": Ks_stack,
+            "jaco_a": J_a_stack,
+            "jaco_f": J_f_stack,
+            "Ks_h": Ks_h_stack,
+            "jaco_ha": J_ha_stack,
+            "jaco_hf": J_hf_stack,
+        }
 
         return contacts, stacked
+
+    # def compute_grasp_matrix(self, ho_contacts) -> np.ndarray:
+    #     n_con = len(ho_contacts)
+    #     if n_con == 0:
+    #         return None
+
+    #     contact_frame = [contact["contact_frame"] for contact in ho_contacts]
+    #     contact_pos_all = [contact["contact_pos"] for contact in ho_contacts]
+    #     contact_pos_all = np.asarray(contact_pos_all).reshape(-1, 3)
+    #     contact_centroid = contact_pos_all.mean(axis=0, keepdims=True)
+    #     contact_r = contact_pos_all - contact_centroid
+    #     contact_r = contact_r * 100.0  # unit from m to cm; then, the unit of torque is (N x cm)
+
+    #     contact_G = []
+    #     for i in range(len(ho_contacts)):
+    #         r = contact_r[i, :]
+    #         n, o, t = contact_frame[i][:, 0], contact_frame[i][:, 1], contact_frame[i][:, 2]
+    #         G = np.block(
+    #             [
+    #                 [n.reshape(-1, 1), o.reshape(-1, 1), t.reshape(-1, 1)],
+    #                 [np.cross(r, n).reshape(-1, 1), np.cross(r, o).reshape(-1, 1), np.cross(r, t).reshape(-1, 1)],
+    #             ]
+    #         )
+    #         contact_G.append(G)
+    #     contact_G = np.concatenate(contact_G, axis=1)
+
+    #     return contact_G
 
     def compute_grasp_matrix(self, ho_contacts) -> np.ndarray:
         n_con = len(ho_contacts)
         if n_con == 0:
             return None
 
-        contact_frame = [contact["contact_frame"] for contact in ho_contacts]
-        contact_pos_all = [contact["contact_pos"] for contact in ho_contacts]
-        contact_pos_all = np.asarray(contact_pos_all).reshape(-1, 3)
-        contact_centroid = contact_pos_all.mean(axis=0, keepdims=True)
-        contact_r = contact_pos_all - contact_centroid
-        contact_r = contact_r * 100.0  # unit from m to cm; then, the unit of torque is (N x cm)
+        # Extract positions and frames
+        contact_frames = np.array([c["contact_frame"] for c in ho_contacts])  # (n, 3, 3)
+        contact_pos = np.array([c["contact_pos"] for c in ho_contacts])  # (n, 3)
 
-        contact_G = []
-        for i in range(len(ho_contacts)):
-            r = contact_r[i, :]
-            n, o, t = contact_frame[i][:, 0], contact_frame[i][:, 1], contact_frame[i][:, 2]
-            G = np.block(
-                [
-                    [n.reshape(-1, 1), o.reshape(-1, 1), t.reshape(-1, 1)],
-                    [np.cross(r, n).reshape(-1, 1), np.cross(r, o).reshape(-1, 1), np.cross(r, t).reshape(-1, 1)],
-                ]
-            )
-            contact_G.append(G)
-        contact_G = np.concatenate(contact_G, axis=1)
+        # Compute centroid and relative positions (scaled to cm)
+        centroid = contact_pos.mean(axis=0, keepdims=True)
+        r_all = (contact_pos - centroid) * 100.0  # (n, 3); unit from m to cm; then, the unit of torque is (N x cm)
+
+        # Split frame axes
+        n_vecs = contact_frames[:, :, 0]  # (n, 3)
+        o_vecs = contact_frames[:, :, 1]
+        t_vecs = contact_frames[:, :, 2]
+
+        # Compute torque components using broadcasting
+        cross_n = np.cross(r_all, n_vecs)  # (n, 3)
+        cross_o = np.cross(r_all, o_vecs)
+        cross_t = np.cross(r_all, t_vecs)
+
+        # Stack translational and rotational parts
+        G_blocks = np.stack(
+            [
+                np.stack([n_vecs, o_vecs, t_vecs], axis=2),  # (n, 3, 3)
+                np.stack([cross_n, cross_o, cross_t], axis=2),  # (n, 3, 3)
+            ],
+            axis=1,
+        )  # (n, 2, 3, 3)
+
+        # Reshape each block into (6, 3) and concatenate along columns
+        contact_G = G_blocks.reshape(n_con, 6, 3).transpose(1, 0, 2).reshape(6, -1)
 
         return contact_G
 
-    def compute_normalized_wrench(self, grasp_matrix, contact_forces):
+    def compute_normalized_wrench(self, grasp_matrix: np.ndarray, contact_forces: np.ndarray):
         wrench = (grasp_matrix @ contact_forces.reshape(-1, 1)).reshape(-1)
 
         cf = contact_forces.reshape(-1, 3)
@@ -264,7 +278,7 @@ class GraspController:
             return 1.0, None
 
         # weights
-        w_wrench = np.diag([1.0, 1, 1, 1, 1, 1])
+        w_wrench = np.eye(6)
         mu = self.mu
         gamma = 1.0
 
@@ -327,11 +341,9 @@ class GraspController:
         cf = res.x.reshape(-1)
 
         if self.balance_use_normalized:
-            normalized_wrench = self.compute_normalized_wrench(contact_G, cf)
-            metric = np.linalg.norm(normalized_wrench)
+            metric = np.linalg.norm(self.compute_normalized_wrench(grasp_matrix, cf))
         else:
-            wrench = (contact_G @ cf.reshape(-1, 1)).reshape(-1)
-            metric = np.linalg.norm(wrench)
+            metric = np.linalg.norm(grasp_matrix @ cf.reshape(-1, 1))
 
         return metric, cf
 
@@ -358,23 +370,23 @@ class GraspController:
         n_hand_dof = self.robot.hand.n_dof
         n_dof = n_arm_dof + n_hand_dof
         doa2dof_matrix = self.robot_adaptor.doa2dof_matrix
-        n_con = len(ho_contacts)
         joint_limits_f = self.robot_adaptor.joint_limits_f
         q_step_max = np.asarray(self.robot.doa_max_vel) * dt
+        n_con = len(ho_contacts) if ho_contacts else 0
 
         if b_contact and n_con:
             # compute grasp matrix
             contact_G = self.compute_grasp_matrix(ho_contacts) if grasp_matrix is None else grasp_matrix
             # compute Ks and contact jacobian
             updated_contacts, stacked = self.Ks(q_a=curr_q_a, q_f=curr_q_f, contacts=ho_contacts)
-            contact_force_all = np.concatenate([contact["contact_force"][:3] for contact in updated_contacts], axis=0)
+            contact_force_all = np.concatenate([c["contact_force"][:3] for c in updated_contacts], axis=0)
             contact_jaco_all = stacked["jaco_a"]
             # whether use Ks_h
-            if stage == 1 or (not self.stage2_Ks_hand_only):
-                Ks_all = stacked["Ks"]
-            else:
+            if stage == 2 and self.stage2_Ks_hand_only:
                 Ks_all = stacked["Ks_h"]
-                contact_jaco_all[:, :n_arm_dof] = 0
+                contact_jaco_all[:, :n_arm_dof] = 0  # remove arm part
+            else:
+                Ks_all = stacked["Ks"]
             # whether consider coupling
             if self.use_coupling and n_con > 1:
                 K_coup = (
@@ -414,9 +426,9 @@ class GraspController:
 
         q_f2a_direction = np.sign(curr_q_a - curr_q_f)
         if stage == 2 and n_con > 0:
-            in_contact_q_indices = np.any(contact_jaco_all != 0, axis=0)
+            in_contact_q_indices = contact_jaco_all.any(axis=0)
             contact_jaco_h = contact_jaco_all[:, -n_hand_dof:]
-            in_contact_qh_indices = np.any(contact_jaco_h != 0, axis=0)
+            in_contact_qh_indices = contact_jaco_h.any(axis=0)
             if self.stage2_incontact_force_only:
                 # in-contact joint, no position control
                 w_q_hand[in_contact_qh_indices, in_contact_qh_indices] = 0
@@ -851,34 +863,27 @@ class GraspController:
             # compute grasp matrix
             contact_G = self.compute_grasp_matrix(ho_contacts) if grasp_matrix is None else grasp_matrix
             # compute Ks and contact jacobian
-            updated_contacts = self.Ks(q_a=curr_q_a, q_f=curr_q_f, contacts=ho_contacts)
-            Ks_all = []
-            contact_jaco_all = []  # J(qd)
-            contact_force_all = []
-            for _, contact in enumerate(updated_contacts):
-                jaco_a = contact["jaco_a"]
-                if stage == 1 or (not self.stage2_Ks_hand_only):
-                    Ks = contact["Ks"]
-                else:
-                    Ks = contact["Ks_h"]
-                    jaco_a[:, :n_arm_dof] = 0
-                Ks_all.append(Ks)
-                contact_jaco_all.append(jaco_a)
-                contact_force_all.append(contact["contact_force"][:3])
-            Ks_all = block_diag(*Ks_all)
-            contact_jaco_all = np.concatenate(contact_jaco_all, axis=0)
-            contact_force_all = np.concatenate(contact_force_all, axis=0)
+            updated_contacts, stacked = self.Ks(q_a=curr_q_a, q_f=curr_q_f, contacts=ho_contacts)
+            contact_force_all = np.concatenate([c["contact_force"][:3] for c in updated_contacts], axis=0)
+            contact_jaco_all = stacked["jaco_a"]
+            # whether use Ks_h
+            if stage == 2 and self.stage2_Ks_hand_only:
+                Ks_all = stacked["Ks_h"]
+                contact_jaco_all[:, :n_arm_dof] = 0  # remove arm part
+            else:
+                Ks_all = stacked["Ks"]
+            # whether consider coupling
             if self.use_coupling and n_con > 1:
                 K_coup = (
                     Ks_all
-                    + Ks_all
+                    - Ks_all
                     @ contact_G.T
                     @ np.linalg.pinv(contact_G @ Ks_all @ contact_G.T, rcond=1e-3)
                     @ contact_G
                     @ Ks_all
                 )
                 Ks_jaco = K_coup @ contact_jaco_all
-            else:
+            else:  # not use coupling
                 Ks_jaco = Ks_all @ contact_jaco_all
         else:
             contact_force_all = np.zeros((0))
@@ -899,9 +904,9 @@ class GraspController:
         w_hb_pose = np.diag([0, 0, 100.0, 10.0, 10.0, 10.0])
         w_q_hand = 1.0 * np.eye(n_hand_dof)
         w_dqa = 0.01 * np.eye(n_dof)  #  <= 0.01
-        w_ddqa = [0.00001] * n_arm_dof + [0.001] * n_hand_dof
+        w_ddqa = [0.001] * n_arm_dof + [0.001] * n_hand_dof
         w_ddqa = np.diag(w_ddqa)
-        w_cp = np.diag([0.0, 100, 100])
+        w_cp = np.diag([0.0, self.tan_motion_pen_weight, self.tan_motion_pen_weight])
         w_cp = block_diag(*[w_cp for _ in range(n_con)])
         w_cf = np.diag([1.0, 1.0, 1.0])
         w_cf = block_diag(*[w_cf for _ in range(n_con)])
@@ -910,11 +915,14 @@ class GraspController:
         cf_d = desired_forces
 
         if stage == 2 and n_con > 0:
+            in_contact_q_indices = contact_jaco_all.any(axis=0)
             contact_jaco_h = contact_jaco_all[:, -n_hand_dof:]
             in_contact_qh_indices = np.any(contact_jaco_h != 0, axis=0)
             if self.stage2_incontact_force_only:
                 # in-contact joint, no position control
                 w_q_hand[in_contact_qh_indices, in_contact_qh_indices] = 0
+            if self.stage2_penalize_contact_qda:
+                w_dqa[in_contact_q_indices, in_contact_q_indices] *= 100
 
         def objective(x):
             dq_a = x[:n_dof].copy()
@@ -1297,31 +1305,3 @@ class GraspController:
         res["dq_a"] = dq_a
         res["cf"] = cf
         return res
-
-
-if __name__ == "__main__":
-    from pin_helper import PinocchioHelper
-
-    robot: ArmHand = RobotFactory.create_robot(robot_type="dummy_arm_shadow", prefix="rh_")
-    robot_file_path = robot.get_file_path("mjcf")
-    dof_names = robot.dof_names
-    doa_names = robot.doa_names
-    doa2dof_matrix = robot.doa2dof_matrix
-
-    robot_model = PinocchioHelper(robot_file_path=robot_file_path, robot_file_type="mjcf")
-
-    robot_adaptor = RobotAdaptor(
-        robot_model=robot_model,
-        dof_names=dof_names,
-        doa_names=doa_names,
-        doa2dof_matrix=doa2dof_matrix,
-    )
-
-    grasp_ctrl = GraspController(robot=robot, robot_adaptor=robot_adaptor)
-
-    # curr_q_a = (robot_adaptor.joint_limits_f[0, :] + robot_adaptor.joint_limits_f[1, :]) / 2.0
-    # target_q_f = robot_adaptor._doa2dof(curr_q_a) + 0.01
-
-    # t1 = time.time()
-    # grasp_ctrl.stage1_opt(curr_q_a, target_q_f)
-    # print(f"time cost: {time.time() - t1}")

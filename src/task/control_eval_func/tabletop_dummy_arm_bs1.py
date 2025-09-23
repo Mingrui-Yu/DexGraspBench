@@ -123,9 +123,9 @@ class tabletopDummyArmBS1Eval(BaseEval):
             hand_qpos_err = (target_hand_qpos_a - curr_hand_qpos_a).reshape(-1, 1)
             w_q = np.ones_like(curr_hand_qpos_a)
 
-            updated_contacts = self.grasp_ctrl.Ks(curr_qpos_a, curr_qpos_f, ho_contacts)
             n_con = len(ho_contacts)
             if n_con:
+                updated_contacts, _ = self.grasp_ctrl.Ks(curr_qpos_a, curr_qpos_f, ho_contacts)
                 Ks_all = []
                 contact_jaco_all = []
                 contact_force_all = []

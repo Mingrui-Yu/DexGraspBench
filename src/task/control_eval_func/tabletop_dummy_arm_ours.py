@@ -43,8 +43,6 @@ class tabletopDummyArmOursEval(BaseEval):
         return q[..., self.dof_data2user_indices].copy()
 
     def _simulate_under_extforce_details(self, pregrasp_qpos, grasp_qpos, squeeze_qpos):
-        # self._initialize()
-
         self.desired_sum_force_as_traj = self.configs.task.control.desired_sum_force_as_traj
         self.use_desired_sum_force_ub = self.configs.task.control.use_desired_sum_force_ub
 
@@ -53,7 +51,6 @@ class tabletopDummyArmOursEval(BaseEval):
         action_dt = self.action_dt
         sim_step_per_action = self.sim_step_per_action
         b_debug = self.configs.task.debug_viewer
-        # b_debug = False
 
         # initialize actuated qpos
         curr_qpos_f = self.mj_ho.get_qpos_f(names=self.robot.dof_names)

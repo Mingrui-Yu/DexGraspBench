@@ -1,5 +1,9 @@
 import os
 
+"""
+Count the number of DexLearn generated grasps.
+"""
+
 
 def count_files(path, recursive=False):
     dir_count = sum(1 for entry in os.scandir(path) if entry.is_dir())
