@@ -115,11 +115,6 @@ class GraspController:
         body_jaco_f_lst = [self.robot_adaptor.get_frame_jaco(frame_name=name, type="body") for name in body_name_lst]
         pose_f_lst = [self.robot_adaptor.get_frame_pose(frame_name=name) for name in body_name_lst]
 
-        if self.jaco_reference_frame:
-            for i in range(len(contacts)):
-                delta_rot = pose_f_lst[i][:3, :3].T @ pose_a_lst[i][:3, :3]
-                body_jaco_a_lst[i] = block_diag(delta_rot, delta_rot) @ body_jaco_a_lst[i]
-
         # --- Compute per-contact Jacobians ---
         for i, c in enumerate(contacts):
             cp_local = c["contact_pos_local"].reshape(-1, 1)

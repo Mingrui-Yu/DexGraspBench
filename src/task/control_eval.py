@@ -41,6 +41,10 @@ def task_control_eval(configs):
     input_path_lst = glob(os.path.join(input_dir, "**/*.npy"), recursive=True)
     init_num = len(input_path_lst)
 
+    # DEBUG
+    print("os.getcwd(): ", os.getcwd())
+    print(os.path.abspath(configs.hand.xml_path))
+
     if configs.skip:
         eval_path_lst = glob(os.path.join(configs.eval_dir, "**/*.npy"), recursive=True)
         eval_path_lst = [p.replace(configs.eval_dir, input_dir) for p in eval_path_lst]
